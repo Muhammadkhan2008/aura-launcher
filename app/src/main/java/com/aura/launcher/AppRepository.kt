@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
+import android.net.Uri
+import android.provider.Settings
 
 /**
  * AppInfo — ek installed app ki jaankari rakhta hai.
@@ -33,13 +35,17 @@ object AppRepository {
         val resolveInfoList: List<ResolveInfo> =
             pm.queryIntentActivities(intent, 0)
 
-        return resolveInfoList.map { info ->
-            AppInfo(
-                label = info.loadLabel(pm).toString(),
-                packageName = info.activityInfo.packageName,
-                icon = info.loadIcon(pm)
-            )
-        }.sortedBy { it.label.lowercase() }  // A-Z sort
+        return resolveInfoList
+            .filter { it.activityInfo.packageName != context.packageName } // khud Aura ko hide
+            .map { info ->
+                AppInfo(
+                    label = info.loadLabel(pm).toString(),
+                    packageName = info.activityInfo.packageName,
+                    icon = info.loadIcon(pm)
+                )
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }  // A-Z sort
     }
 
     /**
@@ -53,4 +59,27 @@ object AppRepository {
             context.startActivity(it)
         }
     }
+
+    /**
+     * App ki "App Info" settings screen kholo (long-press menu se).
+     */
+    fun openAppInfo(context: Context, packageName: String) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+
+    /**
+     * App ko uninstall karne ka dialog kholo (long-press menu se).
+     */
+    fun uninstallApp(context: Context, packageName: String) {
+        val intent = Intent(Intent.ACTION_DELETE).apply {
+            data = Uri.parse("package:$packageName")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
 }
+
