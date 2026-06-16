@@ -30,6 +30,8 @@ fun SettingsPanel(
 ) {
     val context = LocalContext.current
     var columns by remember { mutableStateOf(prefs.gridColumns) }
+    var apiKey by remember { mutableStateOf(prefs.groqApiKey) }
+    var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -95,6 +97,55 @@ fun SettingsPanel(
                     onClick = { LockHelper.requestAdmin(context) }
                 )
 
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
+                // ---- AI Assistant section ----
+                Text(
+                    "AI Assistant (Groq)",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Apni FREE key console.groq.com se banao aur yahan paste karo. " +
+                        "Key sirf is phone mein save hoti hai, kahin nahi jaati.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    placeholder = { Text("gsk_...", color = Color.White.copy(alpha = 0.5f)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF9D86FF),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
+                    )
+                )
+
+                Spacer(Modifier.height(12.dp))
+                // Smart prediction toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Smart app prediction", color = Color.White, fontSize = 14.sp)
+                        Text(
+                            "Time/habit se apps suggest kare (on-device)",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Switch(checked = predictOn, onCheckedChange = { predictOn = it })
+                }
+
                 Spacer(Modifier.height(20.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -106,6 +157,8 @@ fun SettingsPanel(
                     Spacer(Modifier.width(8.dp))
                     Button(onClick = {
                         prefs.gridColumns = columns
+                        prefs.groqApiKey = apiKey
+                        prefs.smartPredictionEnabled = predictOn
                         onChanged()
                         onClose()
                     }) {

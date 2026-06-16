@@ -55,4 +55,7 @@ dependencies {
 
     // Coil — icons/images load karne ke liye
     implementation 'io.coil-kt:coil-compose:2.5.0'
+
+    // Coroutines — AI calls background thread pe (UI hang na ho)
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 }
