@@ -113,23 +113,26 @@ Tumhare PC pe kuch bhaari install nahi hota. Bas code + browser.
 
 ## 7. Roadmap (phases)
 
-**Phase 1 — Core (ABHI bana diya) ✅**
+**Phase 1 — Core (bana diya) ✅**
 - Home screen banna
 - App list, search, launch
 - Gradient theme
 - Cloud build setup
 
-**Phase 2 — Customization (Nova jaisa)**
-- Grid size, icon size settings
-- Folders, app drawer styles
-- Gestures (swipe up = drawer)
-- App hide / lock
+**Phase 2 — Customization (bana diya) ✅**
+- App drawer (swipe up se khulta hai)
+- Dock (favourite apps niche)
+- Long-press menu (Add to dock / App info / Uninstall)
+- Settings panel (grid columns 3-6)
+- Back button fix (launcher home pe rehta hai, xOS wapas nahi aata)
+- Real wallpaper (phone ka apna wallpaper dikhta hai)
+- Smooth drawer slide animation
 
 **Phase 3 — Beauty (xOS jaisa, bina bloat)**
 - Material You dynamic colors
 - Icon packs support
 - Widgets (clock, weather)
-- Smooth animations
+- Aur smooth animations
 
 **Phase 4 — Smartness (Aura ka USP) 🧠**
 - On-device app prediction (time/habit based)
