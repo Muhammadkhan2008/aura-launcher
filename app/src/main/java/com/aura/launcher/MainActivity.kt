@@ -10,11 +10,14 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -27,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -71,8 +75,21 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     val prefs = remember { AuraPrefs(context) }
 
     var apps by remember { mutableStateOf(emptyList<AppInfo>()) }
+    var recents by remember { mutableStateOf(emptyList<AppInfo>()) }
+    // "Set default" banner tabhi dikhe jab Aura default na ho
+    var isDefault by remember { mutableStateOf(true) }
+
     LaunchedEffect(Unit) {
         apps = AppRepository.getInstalledApps(context)
+        isDefault = LauncherActions.isDefaultLauncher(context)
+    }
+
+    // Jab drawer band ho ya apps load ho, recents refresh karo
+    LaunchedEffect(apps, drawerOpen.value) {
+        if (apps.isNotEmpty()) {
+            recents = RecentApps.getRecentApps(context, apps)
+        }
+        isDefault = LauncherActions.isDefaultLauncher(context)
     }
 
     // Dock ke favourite apps
@@ -84,7 +101,6 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     Box(modifier = Modifier.fillMaxSize()) {
 
         // ---- HOME SCREEN (background = phone ka wallpaper, theme se) ----
-        // Halka sa dark scrim taaki text/clock saaf dikhe (boring gradient hata diya)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -97,22 +113,40 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                         )
                     )
                 )
-                // Swipe UP se drawer khulega
+                // Gestures: swipe up = drawer, swipe down = notifications,
+                // double-tap = screen lock (launcher "kabza" powers)
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount < -25) drawerOpen.value = true   // upar swipe
+                        if (dragAmount < -25) drawerOpen.value = true        // upar
+                        else if (dragAmount > 25) LauncherActions.openNotifications(context) // niche
                     }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { LockHelper.lockScreen(context) }
+                    )
                 }
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Upar: bada clock
-                ClockHeader(modifier = Modifier.padding(top = 64.dp))
+                Column {
+                    // Set-default banner (kabza ke liye 1-tap)
+                    if (!isDefault) {
+                        SetDefaultBanner(
+                            onClick = { LauncherActions.requestSetDefault(context) }
+                        )
+                    }
+                    // Upar: bada clock
+                    ClockHeader(modifier = Modifier.padding(top = 56.dp))
+                }
 
-                // Niche: dock (favourite apps) + hint
+                // Niche: recents + dock + hint
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (recents.isNotEmpty()) {
+                        RecentRow(recents = recents)
+                    }
                     Text(
                         text = "Swipe up for apps  ▲",
                         color = Color.White.copy(alpha = 0.7f),
@@ -136,6 +170,70 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 onAppClick = { AppRepository.launchApp(context, it.packageName) },
                 onClose = { drawerOpen.value = false }
             )
+        }
+    }
+}
+
+/**
+ * SetDefaultBanner — agar Aura default launcher nahi hai to
+ * upar ek banner dikhta hai "tap to set default". Ek launcher ki
+ * "kabza" lene ki sabse zaroori cheez.
+ */
+@Composable
+fun SetDefaultBanner(onClick: () -> Unit) {
+    Surface(
+        color = Color(0xFF6C4DF6),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+    ) {
+        Row(
+            modifier = Modifier
+                .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Aura ko default banao", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    "Tap karo → poora home Aura ka ho jayega",
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp
+                )
+            }
+            Text("SET  →", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/**
+ * RecentRow — Aura ka apna recent apps (system recents ka alternative).
+ */
+@Composable
+fun RecentRow(recents: List<AppInfo>) {
+    val context = LocalContext.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "Recent",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(start = 24.dp, bottom = 6.dp)
+        )
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        ) {
+            items(recents, key = { it.packageName }) { app ->
+                AppIcon(
+                    app = app,
+                    iconSize = 48,
+                    showLabel = false,
+                    onClick = { AppRepository.launchApp(context, app.packageName) }
+                )
+            }
         }
     }
 }

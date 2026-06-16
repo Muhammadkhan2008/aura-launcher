@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Apps ki list dekhne ke liye (Android 11+ ke liye zaroori) -->
     <queries>
@@ -9,8 +10,15 @@
         </intent>
     </queries>
 
-    <!-- Internet sirf AI feature (Groq) ke liye. Aur kuch permission nahi. -->
+    <!-- Internet sirf AI feature (Groq) ke liye. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Launcher "kabza" powers: -->
+    <!-- Double-tap se screen lock (DevicePolicyManager ke liye nahi chahiye, accessibility-free way) -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+    <!-- Recent apps / smart prediction ke liye (user grant karega) -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
@@ -33,6 +41,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Device Admin: double-tap se screen lock ke liye -->
+        <receiver
+            android:name=".AuraAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

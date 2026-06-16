@@ -1,21 +1,26 @@
 package com.aura.launcher
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 
 /**
- * SettingsPanel — chhota settings dialog.
+ * SettingsPanel — settings dialog.
  *
- * Abhi: app drawer ke columns (3-6) adjust kar sakte ho.
- * Sab kuch offline SharedPreferences mein save hota hai.
+ * - App drawer columns (3-6)
+ * - Launcher "kabza" powers: default banao, recent apps permission,
+ *   double-tap-to-lock permission.
+ * Sab offline SharedPreferences / system settings se.
  */
 @Composable
 fun SettingsPanel(
@@ -23,14 +28,23 @@ fun SettingsPanel(
     onClose: () -> Unit,
     onChanged: () -> Unit
 ) {
+    val context = LocalContext.current
     var columns by remember { mutableStateOf(prefs.gridColumns) }
+
+    val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
+    val hasUsage = remember { RecentApps.hasUsagePermission(context) }
+    val hasAdmin = remember { LockHelper.isAdminActive(context) }
 
     Dialog(onDismissRequest = onClose) {
         Surface(
             shape = MaterialTheme.shapes.large,
             color = Color(0xFF1B1730)
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Text(
                     text = "Aura Settings",
                     color = Color.White,
@@ -40,18 +54,48 @@ fun SettingsPanel(
                 Spacer(Modifier.height(20.dp))
 
                 Text("App drawer columns: $columns", color = Color.White, fontSize = 15.sp)
-                Spacer(Modifier.height(8.dp))
-
-                // Columns slider (3 se 6)
                 Slider(
                     value = columns.toFloat(),
                     onValueChange = { columns = it.toInt() },
                     valueRange = 3f..6f,
-                    steps = 2   // 3,4,5,6
+                    steps = 2
+                )
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    "Launcher Powers",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Spacer(Modifier.height(8.dp))
+
+                // Default launcher
+                PowerRow(
+                    title = "Default launcher",
+                    status = if (isDefault) "Active ✓" else "Set Aura as default",
+                    done = isDefault,
+                    onClick = { LauncherActions.requestSetDefault(context) }
+                )
+                // Recent apps (UsageStats)
+                PowerRow(
+                    title = "Recent apps",
+                    status = if (hasUsage) "Allowed ✓" else "Allow usage access",
+                    done = hasUsage,
+                    onClick = { RecentApps.requestUsagePermission(context) }
+                )
+                // Double-tap to lock (Device Admin)
+                PowerRow(
+                    title = "Double-tap to lock",
+                    status = if (hasAdmin) "Enabled ✓" else "Enable lock permission",
+                    done = hasAdmin,
+                    onClick = { LockHelper.requestAdmin(context) }
                 )
 
                 Spacer(Modifier.height(20.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -72,3 +116,31 @@ fun SettingsPanel(
         }
     }
 }
+
+@Composable
+private fun PowerRow(
+    title: String,
+    status: String,
+    done: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp)
+            Text(
+                status,
+                color = if (done) Color(0xFF66E08F) else Color.White.copy(alpha = 0.6f),
+                fontSize = 12.sp
+            )
+        }
+        if (!done) {
+            Button(onClick = onClick) { Text("Enable") }
+        }
+    }
+}
+
