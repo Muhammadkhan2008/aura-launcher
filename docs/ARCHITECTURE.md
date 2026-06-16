@@ -134,6 +134,18 @@ Tumhare PC pe kuch bhaari install nahi hota. Bas code + browser.
 - Widgets (clock, weather)
 - Aur smooth animations
 
+**Phase 3 — Launcher Takeover ("kabza") ✅**
+- "Set as default" banner + 1-tap RoleManager prompt
+- Double-tap home se screen LOCK (Device Admin)
+- Apna Recent apps row (UsageStats — system recents ka alternative)
+- Swipe down se notifications panel
+- Settings mein saari powers ka status + enable buttons
+
+> NOTE: 3 hardware buttons (back/home/recents) aur system lock-screen
+> ko KOI launcher reprogram/replace nahi kar sakta — wo Android SystemUI
+> ke control mein hain (security). Aura wahi sab karta hai jo ek asli
+> launcher (Nova/xOS-launcher) legally kar sakta hai.
+
 **Phase 4 — Smartness (Aura ka USP) 🧠**
 - On-device app prediction (time/habit based)
 - AI universal search (Groq)
