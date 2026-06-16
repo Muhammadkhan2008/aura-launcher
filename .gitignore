@@ -5,6 +5,10 @@ build/
 app/build/
 local.properties
 
+# Downloaded APKs (build cloud pe hota hai, repo mein APK nahi rakhna)
+output/
+*.apk
+
 # IDE
 .idea/
 .vscode/
