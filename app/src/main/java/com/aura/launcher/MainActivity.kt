@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -111,11 +112,9 @@ fun AppIcon(app: AppInfo, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .clickable(onClick = onClick)
             .padding(12.dp)
-            .clickableNoRipple(onClick)
     ) {
-        // Drawable ko Compose mein dikhane ke liye Coil use hota hai;
-        // simple rakhne ke liye abhi placeholder box + label.
         coil.compose.AsyncImage(
             model = app.icon,
             contentDescription = app.label,
@@ -130,17 +129,4 @@ fun AppIcon(app: AppInfo, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis
         )
     }
-}
-
-// Helper: bina ripple ke clickable (clean look)
-@Composable
-fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    return this.then(
-        androidx.compose.foundation.clickable(
-            interactionSource = interaction,
-            indication = null,
-            onClick = onClick
-        )
-    )
 }
