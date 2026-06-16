@@ -1,9 +1,14 @@
 package com.aura.launcher
 
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -50,6 +55,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // IMMERSIVE MODE: sirf Aura ki screen pe nav bar + status bar
+        // chhupte hain (Nova/launcher jaisa "takeover" feel). Ye system-wide
+        // NAHI hai — kisi aur app mein nav bar normal rahega.
+        enableImmersiveMode()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (drawerOpenState.value) drawerOpenState.value = false
@@ -58,6 +68,29 @@ class MainActivity : ComponentActivity() {
         })
 
         setContent { AuraTheme { AuraHomeScreen(drawerOpenState) } }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Jab user wapas Aura pe aaye to immersive dobara lagao
+        if (hasFocus) enableImmersiveMode()
+    }
+
+    /**
+     * Immersive mode — content ko edge-to-edge banata hai aur system bars
+     * (status + navigation) ko swipe-to-reveal mode mein chhupata hai.
+     * Sirf is activity (Aura home) pe asar — system-wide nahi.
+     */
+    private fun enableImmersiveMode() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        // Status/nav bar transparent rahein
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        }
     }
 }
 
