@@ -1,0 +1,18 @@
+# Build outputs
+*.iml
+.gradle/
+build/
+app/build/
+local.properties
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keystore (kabhi git pe mat daalna!)
+*.jks
+*.keystore
