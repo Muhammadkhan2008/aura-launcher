@@ -17,6 +17,9 @@
     <!-- Internet sirf AI feature (Groq) ke liye. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Aura ke apne gradient wallpapers set karne ke liye -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+
     <!-- Voice search ke liye (user grant karega, optional feature) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

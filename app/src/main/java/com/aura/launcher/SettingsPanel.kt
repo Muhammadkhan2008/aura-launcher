@@ -1,13 +1,20 @@
 package com.aura.launcher
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -189,6 +196,43 @@ fun SettingsPanel(
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
 
+                // ---- Wallpaper section (Aura ke apne premium wallpapers) ----
+                Text(
+                    "Wallpaper",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Aura ke premium wallpaper. Tap karke set karo.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                ) {
+                    WallpaperHelper.WALLPAPERS.forEach { wp ->
+                        WallpaperSwatch(
+                            wallpaper = wp,
+                            onClick = {
+                                val ok = WallpaperHelper.setWallpaper(context, wp)
+                                android.widget.Toast.makeText(
+                                    context,
+                                    if (ok) "Wallpaper set ✓" else "Wallpaper set fail",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
                 // ---- Backup / Restore section ----
                 Text(
                     "Backup & Restore",
@@ -289,6 +333,38 @@ private fun IconPackOption(
         RadioButton(selected = selected, onClick = onClick)
         Spacer(Modifier.width(4.dp))
         Text(label, color = Color.White, fontSize = 14.sp)
+    }
+}
+
+/** Ek wallpaper preview swatch (gradient circle). Tap karke set hota hai. */
+@Composable
+private fun WallpaperSwatch(
+    wallpaper: WallpaperHelper.AuraWallpaper,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(end = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    Brush.verticalGradient(
+                        wallpaper.colors.map { Color(it) }
+                    )
+                )
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onClick() })
+                }
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            wallpaper.name,
+            color = Color.White.copy(alpha = 0.8f),
+            fontSize = 11.sp
+        )
     }
 }
 
