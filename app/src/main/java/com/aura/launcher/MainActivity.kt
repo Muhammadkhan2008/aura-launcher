@@ -192,10 +192,10 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     )
                 )
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
+                    detectVerticalDragGestures(onVerticalDrag = { change, dragAmount ->
                         if (dragAmount < -25) drawerOpen.value = true
                         else if (dragAmount > 25) LauncherActions.openNotifications(context)
-                    }
+                    })
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(onDoubleTap = { LockHelper.lockScreen(context) })
@@ -228,6 +228,17 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                     DockBar(favorites = favorites)
+                }
+
+                // Settings FAB (bottom-right)
+                FloatingActionButton(
+                    onClick = { /* Settings open from drawer or direct */ },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
+                    containerColor = Color(0xFF9D86FF)
+                ) {
+                    Icon(Icons.Filled.Settings, "Settings", tint = Color.White)
                 }
             }
         }
