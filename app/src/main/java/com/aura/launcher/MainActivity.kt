@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -60,6 +61,9 @@ class MainActivity : ComponentActivity() {
         // NAHI hai — kisi aur app mein nav bar normal rahega.
         enableImmersiveMode()
 
+        // Mic permission ek baar maang lo (voice search ke liye, optional)
+        requestMicPermissionIfNeeded()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (drawerOpenState.value) drawerOpenState.value = false
@@ -74,6 +78,17 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         // Jab user wapas Aura pe aaye to immersive dobara lagao
         if (hasFocus) enableImmersiveMode()
+    }
+
+    /** Mic permission maango (voice search ke liye). Ek baar dialog aayega. */
+    private fun requestMicPermissionIfNeeded() {
+        val granted = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            runCatching {
+                requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 1001)
+            }
+        }
     }
 
     /**
@@ -106,6 +121,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
 
     LaunchedEffect(Unit) {
         apps = AppRepository.getInstalledApps(context)
+        VoiceSearch.setApps(apps)   // voice command app khol sake
         isDefault = LauncherActions.isDefaultLauncher(context)
     }
 
@@ -453,7 +469,7 @@ fun AppDrawer(
     }
 }
 
-/** Glass-style search bar with an AI button. */
+/** Glass-style search bar with mic (voice) + AI button. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlassSearchBar(
@@ -461,6 +477,7 @@ fun GlassSearchBar(
     onQueryChange: (String) -> Unit,
     onAskAi: () -> Unit
 ) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -473,6 +490,19 @@ fun GlassSearchBar(
             placeholder = { Text("Search apps or ask AI…", color = Color.White.copy(alpha = 0.6f)) },
             singleLine = true,
             leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color.White.copy(alpha = 0.7f)) },
+            trailingIcon = {
+                // Mic button — voice se app search/open
+                IconButton(onClick = {
+                    VoiceSearch.startListening(context) { spoken ->
+                        // Bola hua text search box mein daal do
+                        onQueryChange(spoken)
+                        // App match ho to seedha khol do
+                        VoiceSearch.tryOpenApp(context, spoken)
+                    }
+                }) {
+                    Icon(Icons.Filled.Mic, "Voice search", tint = Color(0xFF9D86FF))
+                }
+            },
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(18.dp),
             colors = OutlinedTextFieldDefaults.colors(

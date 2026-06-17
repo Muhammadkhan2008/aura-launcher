@@ -8,10 +8,17 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- Voice search: speech recognition service dhoondhne ke liye -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
     </queries>
 
     <!-- Internet sirf AI feature (Groq) ke liye. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Voice search ke liye (user grant karega, optional feature) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Launcher "kabza" powers: -->
     <!-- Double-tap se screen lock (DevicePolicyManager ke liye nahi chahiye, accessibility-free way) -->
