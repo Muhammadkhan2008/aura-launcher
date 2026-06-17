@@ -25,6 +25,7 @@ object BackupManager {
             put("version", 1)
             put("gridColumns", prefs.gridColumns)
             put("smartPrediction", prefs.smartPredictionEnabled)
+            put("showCategories", prefs.showCategoryView)
             put("favorites", JSONArray(prefs.getFavorites()))
             // NOTE: groqApiKey jaan-bujh ke skip (security)
         }
@@ -39,6 +40,7 @@ object BackupManager {
 
             prefs.gridColumns = root.optInt("gridColumns", 4)
             prefs.smartPredictionEnabled = root.optBoolean("smartPrediction", true)
+            prefs.showCategoryView = root.optBoolean("showCategories", false)
 
             val favs = root.optJSONArray("favorites")
             if (favs != null) {

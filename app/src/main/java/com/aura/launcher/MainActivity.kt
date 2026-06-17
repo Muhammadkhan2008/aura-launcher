@@ -392,7 +392,7 @@ fun AppDrawer(
     var query by remember { mutableStateOf("") }
     var settingsOpen by remember { mutableStateOf(false) }
     var cols by remember { mutableStateOf(columns) }
-    var showCategories by remember { mutableStateOf(false) }
+    var showCategories by remember { mutableStateOf(prefs.showCategoryView) }
 
     // AI state
     var aiAnswer by remember { mutableStateOf<String?>(null) }
@@ -473,7 +473,10 @@ fun AppDrawer(
                     fontWeight = FontWeight.SemiBold
                 )
                 Row {
-                    TextButton(onClick = { showCategories = !showCategories }) {
+                    TextButton(onClick = {
+                        showCategories = !showCategories
+                        prefs.showCategoryView = showCategories
+                    }) {
                         Text(
                             if (showCategories) "Grid" else "Folders",
                             color = Color(0xFF9D86FF)

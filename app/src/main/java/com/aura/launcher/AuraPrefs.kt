@@ -64,11 +64,17 @@ class AuraPrefs(context: Context) {
         get() = prefs.getString(KEY_ICONPACK, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ICONPACK, value).apply()
 
+    // ---- Category view preference (folders ya grid) ----
+    var showCategoryView: Boolean
+        get() = prefs.getBoolean(KEY_CATEGORY_VIEW, false)
+        set(value) = prefs.edit().putBoolean(KEY_CATEGORY_VIEW, value).apply()
+
     companion object {
         private const val KEY_COLUMNS = "grid_columns"
         private const val KEY_FAVORITES = "favorites"
         private const val KEY_GROQ = "groq_api_key"
         private const val KEY_PREDICT = "smart_prediction"
         private const val KEY_ICONPACK = "icon_pack"
+        private const val KEY_CATEGORY_VIEW = "show_categories"
     }
 }
