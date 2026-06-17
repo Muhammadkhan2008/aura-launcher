@@ -20,6 +20,9 @@
     <!-- Aura ke apne gradient wallpapers set karne ke liye -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
+    <!-- Weather widget ke liye (location-based, user grant karega, optional) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Voice search ke liye (user grant karega, optional feature) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

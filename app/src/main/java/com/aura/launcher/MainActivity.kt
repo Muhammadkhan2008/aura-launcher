@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) enableImmersiveMode()
     }
 
-    /** Mic + storage permission maango (voice + file search ke liye). */
+    /** Mic + storage + location permission maango. */
     private fun requestMicPermissionIfNeeded() {
         val needed = mutableListOf<String>()
 
@@ -91,6 +91,12 @@ class MainActivity : ComponentActivity() {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED) {
             needed.add(android.Manifest.permission.RECORD_AUDIO)
+        }
+
+        // Location (weather widget)
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.ACCESS_COARSE_LOCATION)
         }
 
         // Storage / media (file search) — Android version ke hisaab se
@@ -198,6 +204,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                         SetDefaultBanner(onClick = { LauncherActions.requestSetDefault(context) })
                     }
                     ClockHeader(modifier = Modifier.padding(top = 56.dp))
+                    WeatherWidget(modifier = Modifier.padding(top = 4.dp))
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
