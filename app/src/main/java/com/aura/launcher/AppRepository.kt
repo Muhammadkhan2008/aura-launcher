@@ -35,14 +35,23 @@ object AppRepository {
         }
         val resolveInfoList: List<ResolveInfo> = pm.queryIntentActivities(intent, 0)
 
+        // Agar user ne koi icon pack chuna hai to use load karo (warna null)
+        val packPkg = AuraPrefs(context).iconPack
+        val iconPack = if (packPkg.isNotBlank()) {
+            IconPackManager.load(context, packPkg)
+        } else null
+
         return resolveInfoList
             .filter { it.activityInfo.packageName != context.packageName }
             .map { info ->
+                val pkg = info.activityInfo.packageName
+                // Icon pack se icon try karo; na mile to app ka apna icon
+                val themedIcon = iconPack?.getIcon(pkg, info.activityInfo.name)
                 AppInfo(
                     label = info.loadLabel(pm).toString(),
-                    packageName = info.activityInfo.packageName,
+                    packageName = pkg,
                     activityName = info.activityInfo.name,
-                    icon = info.loadIcon(pm)
+                    icon = themedIcon ?: info.loadIcon(pm)
                 )
             }
             .distinctBy { it.packageName }

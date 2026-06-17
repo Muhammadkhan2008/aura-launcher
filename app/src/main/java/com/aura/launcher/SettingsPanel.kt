@@ -34,6 +34,7 @@ fun SettingsPanel(
     var columns by remember { mutableStateOf(prefs.gridColumns) }
     var apiKey by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
+    var iconPack by remember { mutableStateOf(prefs.iconPack) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -152,6 +153,42 @@ fun SettingsPanel(
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
 
+                // ---- Icon Pack section ----
+                Text(
+                    "Icon Pack",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                val iconPacks = remember { IconPackManager.getInstalledIconPacks(context) }
+                if (iconPacks.isEmpty()) {
+                    Text(
+                        "Koi icon pack install nahi. Play Store se koi pack (jaise " +
+                            "\"Whicons\", \"Delta\") install karo, phir yahan chunega.",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp
+                    )
+                } else {
+                    Spacer(Modifier.height(6.dp))
+                    // "Default" option + har installed pack
+                    IconPackOption(
+                        label = "Default (system icons)",
+                        selected = iconPack.isBlank(),
+                        onClick = { iconPack = "" }
+                    )
+                    iconPacks.forEach { pack ->
+                        IconPackOption(
+                            label = pack.label,
+                            selected = iconPack == pack.packageName,
+                            onClick = { iconPack = pack.packageName }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
                 // ---- Backup / Restore section ----
                 Text(
                     "Backup & Restore",
@@ -197,6 +234,7 @@ fun SettingsPanel(
                         prefs.gridColumns = columns
                         prefs.groqApiKey = apiKey
                         prefs.smartPredictionEnabled = predictOn
+                        prefs.iconPack = iconPack
                         onChanged()
                         onClose()
                     }) {
@@ -232,6 +270,25 @@ private fun PowerRow(
         if (!done) {
             Button(onClick = onClick) { Text("Enable") }
         }
+    }
+}
+
+/** Icon pack chunne ka ek option row (radio-style). */
+@Composable
+private fun IconPackOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = Color.White, fontSize = 14.sp)
     }
 }
 

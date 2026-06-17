@@ -59,10 +59,16 @@ class AuraPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_PREDICT, true)
         set(value) = prefs.edit().putBoolean(KEY_PREDICT, value).apply()
 
+    // ---- Selected icon pack (package name; "" = default icons) ----
+    var iconPack: String
+        get() = prefs.getString(KEY_ICONPACK, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_ICONPACK, value).apply()
+
     companion object {
         private const val KEY_COLUMNS = "grid_columns"
         private const val KEY_FAVORITES = "favorites"
         private const val KEY_GROQ = "groq_api_key"
         private const val KEY_PREDICT = "smart_prediction"
+        private const val KEY_ICONPACK = "icon_pack"
     }
 }
