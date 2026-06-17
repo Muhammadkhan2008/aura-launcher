@@ -26,7 +26,9 @@ import androidx.compose.ui.window.Dialog
 fun SettingsPanel(
     prefs: AuraPrefs,
     onClose: () -> Unit,
-    onChanged: () -> Unit
+    onChanged: () -> Unit,
+    onBackup: () -> Unit = {},
+    onRestore: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var columns by remember { mutableStateOf(prefs.gridColumns) }
@@ -144,6 +146,42 @@ fun SettingsPanel(
                         )
                     }
                     Switch(checked = predictOn, onCheckedChange = { predictOn = it })
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
+                // ---- Backup / Restore section ----
+                Text(
+                    "Backup & Restore",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Apna layout (dock, settings) ek file mein save karo. " +
+                        "Phone badle ya app reinstall ho to wapas le aao.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {
+                            // Pehle save karo phir backup banao (taaki latest data jaye)
+                            prefs.gridColumns = columns
+                            prefs.groqApiKey = apiKey
+                            prefs.smartPredictionEnabled = predictOn
+                            onBackup()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Backup") }
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = onRestore,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Restore") }
                 }
 
                 Spacer(Modifier.height(20.dp))

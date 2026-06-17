@@ -6,6 +6,8 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -398,11 +400,33 @@ fun AppDrawer(
         else apps.filter { it.label.contains(query, ignoreCase = true) }
     }
 
+    // Backup: file create karke usme settings likho
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            val ok = BackupManager.exportTo(context, uri)
+            toast(context, if (ok) "Backup save ho gaya ✓" else "Backup fail")
+        }
+    }
+    // Restore: file choose karke usme se settings padho
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val ok = BackupManager.importFrom(context, uri)
+            toast(context, if (ok) "Restore ho gaya ✓ (drawer dobara kholo)" else "Restore fail")
+            if (ok) cols = prefs.gridColumns
+        }
+    }
+
     if (settingsOpen) {
         SettingsPanel(
             prefs = prefs,
             onClose = { settingsOpen = false },
-            onChanged = { cols = prefs.gridColumns }
+            onChanged = { cols = prefs.gridColumns },
+            onBackup = { backupLauncher.launch("aura_backup.json") },
+            onRestore = { restoreLauncher.launch(arrayOf("application/json")) }
         )
     }
 
@@ -669,6 +693,11 @@ fun FileRow(file: FileResult, onClick: () -> Unit) {
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
+}
+
+/** Chhota toast helper. */
+private fun toast(context: android.content.Context, msg: String) {
+    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
 }
 
 
