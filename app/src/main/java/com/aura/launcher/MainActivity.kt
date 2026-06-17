@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -80,14 +81,34 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) enableImmersiveMode()
     }
 
-    /** Mic permission maango (voice search ke liye). Ek baar dialog aayega. */
+    /** Mic + storage permission maango (voice + file search ke liye). */
     private fun requestMicPermissionIfNeeded() {
-        val granted = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            runCatching {
-                requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 1001)
+        val needed = mutableListOf<String>()
+
+        // Mic (voice search)
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.RECORD_AUDIO)
+        }
+
+        // Storage / media (file search) — Android version ke hisaab se
+        val storagePerms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            listOf(
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+                android.Manifest.permission.READ_MEDIA_VIDEO,
+                android.Manifest.permission.READ_MEDIA_AUDIO
+            )
+        } else {
+            listOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        storagePerms.forEach { p ->
+            if (checkSelfPermission(p) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(p)
             }
+        }
+
+        if (needed.isNotEmpty()) {
+            runCatching { requestPermissions(needed.toTypedArray(), 1001) }
         }
     }
 
@@ -362,6 +383,16 @@ fun AppDrawer(
     var aiAnswer by remember { mutableStateOf<String?>(null) }
     var aiLoading by remember { mutableStateOf(false) }
 
+    // File search (universal search): query par files bhi dhoondho
+    var files by remember { mutableStateOf<List<FileResult>>(emptyList()) }
+    LaunchedEffect(query) {
+        files = if (query.length >= 2) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                FileSearch.search(context, query)
+            }
+        } else emptyList()
+    }
+
     val filtered = remember(query, apps) {
         if (query.isBlank()) apps
         else apps.filter { it.label.contains(query, ignoreCase = true) }
@@ -462,6 +493,21 @@ fun AppDrawer(
                 ) {
                     items(filtered, key = { it.packageName }) { app ->
                         AppIcon(app = app, onClick = { onAppClick(app) })
+                    }
+                    // Universal search: files bhi dikhao (jab query ho)
+                    if (files.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                "Files  (${files.size})",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 4.dp)
+                            )
+                        }
+                        items(files, span = { GridItemSpan(maxLineSpan) }, key = { it.uri.toString() }) { f ->
+                            FileRow(file = f, onClick = { FileSearch.openFile(context, f) })
+                        }
                     }
                 }
             }
@@ -591,6 +637,37 @@ fun CategoryList(
                 }
             }
         }
+    }
+}
+
+/** FileRow — universal search mein mili ek file ki row (icon + naam). */
+@Composable
+fun FileRow(file: FileResult, onClick: () -> Unit) {
+    val emoji = when (file.type) {
+        FileType.IMAGE -> "🖼️"
+        FileType.VIDEO -> "🎬"
+        FileType.AUDIO -> "🎵"
+        FileType.DOCUMENT -> "📄"
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.06f))
+            .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(emoji, fontSize = 22.sp)
+        Spacer(Modifier.width(12.dp))
+        Text(
+            file.name,
+            color = Color.White,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
     }
 }
 

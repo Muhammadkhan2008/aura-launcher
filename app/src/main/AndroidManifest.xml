@@ -20,6 +20,13 @@
     <!-- Voice search ke liye (user grant karega, optional feature) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- File search / backup ke liye (user grant karega, optional) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
     <!-- Launcher "kabza" powers: -->
     <!-- Double-tap se screen lock (DevicePolicyManager ke liye nahi chahiye, accessibility-free way) -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
