@@ -83,6 +83,12 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) enableImmersiveMode()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Badge refresh hone de jab notification change hो
+        window.decorView.invalidate()
+    }
+
     /** Mic + storage + location permission maango. */
     private fun requestMicPermissionIfNeeded() {
         val needed = mutableListOf<String>()

@@ -23,6 +23,9 @@
     <!-- Weather widget ke liye (location-based, user grant karega, optional) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Notification badges dekhe liye (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Voice search ke liye (user grant karega, optional feature) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
