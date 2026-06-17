@@ -19,7 +19,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -505,6 +507,7 @@ fun AppDrawer(
                 onQueryChange = {
                     query = it
                     aiAnswer = null
+                    if (it.isNotBlank()) SearchHistory.addQuery(context, it)
                 },
                 onAskAi = {
                     if (query.isNotBlank()) {
@@ -575,40 +578,79 @@ fun GlassSearchBar(
     onAskAi: () -> Unit
 ) {
     val context = LocalContext.current
+    var showHistory by remember { mutableStateOf(false) }
+    var history by remember { mutableStateOf(emptyList<String>()) }
+
+    LaunchedEffect(Unit) {
+        history = SearchHistory.getHistory(context)
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = { Text("Search apps or ask AI…", color = Color.White.copy(alpha = 0.6f)) },
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color.White.copy(alpha = 0.7f)) },
-            trailingIcon = {
-                // Mic button — voice se app search/open
-                IconButton(onClick = {
-                    VoiceSearch.startListening(context) { spoken ->
-                        // Bola hua text search box mein daal do
-                        onQueryChange(spoken)
-                        // App match ho to seedha khol do
-                        VoiceSearch.tryOpenApp(context, spoken)
+        Box(modifier = Modifier.weight(1f)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search apps or ask AI…", color = Color.White.copy(alpha = 0.6f)) },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color.White.copy(alpha = 0.7f)) },
+                trailingIcon = {
+                    // Mic button — voice se app search/open
+                    IconButton(onClick = {
+                        VoiceSearch.startListening(context) { spoken ->
+                            // Bola hua text search box mein daal do
+                            onQueryChange(spoken)
+                            // App match ho to seedha khol do
+                            VoiceSearch.tryOpenApp(context, spoken)
+                        }
+                    }) {
+                        Icon(Icons.Filled.Mic, "Voice search", tint = Color(0xFF9D86FF))
                     }
-                }) {
-                    Icon(Icons.Filled.Mic, "Voice search", tint = Color(0xFF9D86FF))
-                }
-            },
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(18.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Color(0xFF9D86FF),
-                unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusEvent { if (it.isFocused && query.isEmpty()) showHistory = true else showHistory = false },
+                shape = RoundedCornerShape(18.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Color(0xFF9D86FF),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
+                )
             )
-        )
+            if (showHistory && history.isNotEmpty()) {
+                Surface(
+                    color = Color(0xFF1B1730),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 48.dp)
+                ) {
+                    LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
+                        items(history) { h ->
+                            Text(
+                                h,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 13.sp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(onTap = {
+                                            onQueryChange(h)
+                                            showHistory = false
+                                        })
+                                    }
+                                    .padding(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = onAskAi,
