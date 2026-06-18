@@ -29,7 +29,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -178,16 +181,16 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ---- HOME SCREEN (background = phone ka wallpaper) ----
+        // ---- HOME SCREEN (background = premium gradient overlay) ----
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color.Black.copy(alpha = 0.25f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.55f)
+                            Color(0xFF0F0C1E),
+                            Color(0xFF1B1730).copy(alpha = 0.9f),
+                            Color(0xFF0F0C1E)
                         )
                     )
                 )
@@ -230,15 +233,41 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     DockBar(favorites = favorites)
                 }
 
-                // Settings FAB (bottom-right)
-                FloatingActionButton(
-                    onClick = { /* Settings open from drawer or direct */ },
+                // Bottom navbar (back, home, recents) — system buttons ki tarah
+                Row(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp),
-                    containerColor = Color(0xFF9D86FF)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.Black.copy(alpha = 0.40f))
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Settings, "Settings", tint = Color.White)
+                    // Back button
+                    IconButton(
+                        onClick = { /* System back — already handled */ },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
+                    // Home button (currently home, so just visual)
+                    IconButton(
+                        onClick = { /* Already on home */ },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.Home, "Home", tint = Color(0xFF9D86FF), modifier = Modifier.size(22.dp))
+                    }
+                    // Recents button
+                    IconButton(
+                        onClick = {
+                            val running = RecentsHelper.getRunningTasks(context, 8)
+                            android.widget.Toast.makeText(context, if (running.isEmpty()) "No recent apps" else "${running.size} recent apps", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.MoreVert, "Recents", tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
                 }
             }
         }
