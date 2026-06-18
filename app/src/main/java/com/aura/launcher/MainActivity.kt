@@ -685,7 +685,9 @@ fun GlassSearchBar(
         }
         Spacer(Modifier.width(8.dp))
         Button(
-            onClick = if (hasAiKey) onAskAi else { },
+            onClick = {
+                if (hasAiKey) onAskAi()
+            },
             enabled = hasAiKey,
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
