@@ -195,10 +195,10 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     )
                 )
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures(onVerticalDrag = { change, dragAmount ->
+                    detectVerticalDragGestures { change, dragAmount ->
                         if (dragAmount < -25) drawerOpen.value = true
                         else if (dragAmount > 25) LauncherActions.openNotifications(context)
-                    })
+                    }
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(onDoubleTap = { LockHelper.lockScreen(context) })
