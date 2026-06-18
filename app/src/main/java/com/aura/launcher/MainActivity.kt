@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -662,7 +661,6 @@ fun GlassSearchBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 48.dp)
-                        .zIndex(1f)
                 ) {
                     LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
                         items(history) { h ->
