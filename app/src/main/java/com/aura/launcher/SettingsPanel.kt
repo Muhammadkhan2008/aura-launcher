@@ -39,6 +39,7 @@ fun SettingsPanel(
 ) {
     val context = LocalContext.current
     var columns by remember { mutableStateOf(prefs.gridColumns) }
+    var pageCount by remember { mutableStateOf(HomePageManager.getPageCount(context)) }
     var apiKey by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
     var iconPack by remember { mutableStateOf(prefs.iconPack) }
@@ -71,6 +72,26 @@ fun SettingsPanel(
                     onValueChange = { columns = it.toInt() },
                     valueRange = 3f..6f,
                     steps = 2
+                )
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
+                Text("Home pages: $pageCount", color = Color.White, fontSize = 15.sp)
+                Text(
+                    "Left/right swipe se pages switch karo. Har page pe alag apps pin karo.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Slider(
+                    value = pageCount.toFloat(),
+                    onValueChange = {
+                        pageCount = it.toInt()
+                        HomePageManager.setPageCount(context, it.toInt())
+                    },
+                    valueRange = 1f..5f,
+                    steps = 3
                 )
 
                 Spacer(Modifier.height(8.dp))

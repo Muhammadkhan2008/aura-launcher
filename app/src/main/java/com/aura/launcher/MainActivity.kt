@@ -20,6 +20,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -179,6 +182,9 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         favPkgs.mapNotNull { pkg -> apps.find { it.packageName == pkg } }
     }
 
+    val pageCount = remember { HomePageManager.getPageCount(context) }
+    val pagerState = rememberPagerState(initialPage = 0) { pageCount }
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         // ---- HOME SCREEN (background = premium gradient overlay) ----
@@ -195,7 +201,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     )
                 )
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures { change, dragAmount ->
+                    detectVerticalDragGestures { _, dragAmount ->
                         if (dragAmount < -25) drawerOpen.value = true
                         else if (dragAmount > 25) LauncherActions.openNotifications(context)
                     }
@@ -208,6 +214,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Top: clock + weather (same on all pages)
                 Column {
                     if (!isDefault) {
                         SetDefaultBanner(onClick = { LauncherActions.requestSetDefault(context) })
@@ -216,14 +223,78 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     WeatherWidget(modifier = Modifier.padding(top = 4.dp))
                 }
 
+                // Middle: swipeable pages
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) { page ->
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (page == 0) {
+                            // Page 0: suggestions + recents
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (predicted.isNotEmpty()) {
+                                    SmartSuggestRow(predicted = predicted) {
+                                        AppRepository.launchApp(context, it)
+                                    }
+                                }
+                                if (recents.isNotEmpty()) {
+                                    RecentRow(recents = recents)
+                                }
+                            }
+                        } else {
+                            // Other pages: user ke pinned apps
+                            val pageApps = remember(page) {
+                                HomePageManager.getPageApps(context, page)
+                                    .mapNotNull { pkg -> apps.find { it.packageName == pkg } }
+                            }
+                            if (pageApps.isEmpty()) {
+                                Text(
+                                    "Long-press kisi app pe\n→ \"Page ${page + 1} mein add karo\"",
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    fontSize = 13.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            } else {
+                                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                ) {
+                                    androidx.compose.foundation.lazy.grid.items(pageApps, key = { it.packageName }) { app ->
+                                        AppIcon(app = app, iconSize = 52, onClick = { AppRepository.launchApp(context, app) })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Page dots indicator
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    repeat(pageCount) { i ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .size(if (pagerState.currentPage == i) 8.dp else 5.dp)
+                                .background(
+                                    if (pagerState.currentPage == i) Color(0xFF9D86FF)
+                                    else Color.White.copy(alpha = 0.35f),
+                                    CircleShape
+                                )
+                        )
+                    }
+                }
+
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Smart prediction (on-device AI) — "is waqt ye apps"
-                    if (predicted.isNotEmpty()) {
-                        SmartSuggestRow(predicted = predicted) { AppRepository.launchApp(context, it) }
-                    }
-                    if (recents.isNotEmpty()) {
-                        RecentRow(recents = recents)
-                    }
                     Text(
                         text = "Swipe up for apps  ▲",
                         color = Color.White.copy(alpha = 0.7f),

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
@@ -39,6 +40,8 @@ fun AppIcon(
     val prefs = remember { AuraPrefs(context) }
     var badgeCount by remember { mutableStateOf(0) }
     var shortcuts by remember { mutableStateOf<List<ShortcutHelper.AuraShortcut>>(emptyList()) }
+    var pageCount by remember { mutableStateOf(1) }
+    var pageStatuses by remember { mutableStateOf(emptyList<Boolean>()) }
 
     LaunchedEffect(app.packageName) {
         badgeCount = NotificationBadgeHelper.getNotificationCount(context, app.packageName)
@@ -52,8 +55,13 @@ fun AppIcon(
                     onClick = onClick,
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        // Shortcuts lazily load karein
                         shortcuts = ShortcutHelper.getShortcuts(context, app.packageName)
+                        pageCount = HomePageManager.getPageCount(context)
+                        if (pageCount > 1) {
+                            pageStatuses = (1 until pageCount).map { p ->
+                                HomePageManager.getPageApps(context, p).contains(app.packageName)
+                            }
+                        }
                         menuOpen = true
                     }
                 )
@@ -161,6 +169,36 @@ fun AppIcon(
                     menuOpen = false
                 }
             )
+
+            // Page pinning — only show if user has more than 1 home page
+            if (pageCount > 1) {
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                pageStatuses.forEachIndexed { idx, isOnPage ->
+                    val pageDisplay = idx + 2    // "Page 2", "Page 3" …
+                    val pageIndex = idx + 1      // HomePageManager index (1-based)
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (isOnPage) "Remove from Page $pageDisplay"
+                                else "Add to Page $pageDisplay",
+                                fontSize = 14.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (isOnPage) Icons.Filled.Delete else Icons.Filled.Add,
+                                null,
+                                tint = if (isOnPage) Color(0xFFFF4444) else Color(0xFF9D86FF)
+                            )
+                        },
+                        onClick = {
+                            if (isOnPage) HomePageManager.removeAppFromPage(context, pageIndex, app.packageName)
+                            else HomePageManager.addAppToPage(context, pageIndex, app.packageName)
+                            pageStatuses = pageStatuses.toMutableList().also { it[idx] = !isOnPage }
+                        }
+                    )
+                }
+            }
         }
     }
 }

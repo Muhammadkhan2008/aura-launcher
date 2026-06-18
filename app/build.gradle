@@ -58,4 +58,7 @@ dependencies {
 
     // Coroutines — AI calls background thread pe (UI hang na ho)
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // HorizontalPager — multiple home pages swipe left/right
+    implementation 'androidx.compose.foundation:foundation'
 }
