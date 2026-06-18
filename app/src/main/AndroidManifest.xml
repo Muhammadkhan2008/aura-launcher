@@ -2,44 +2,36 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Apps ki list dekhne ke liye (Android 11+ ke liye zaroori) -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-        <!-- Voice search: speech recognition service dhoondhne ke liye -->
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
-    </queries>
+    <!-- Android 11+ pe sabhi apps query kar sako (launcher ke liye ZAROORI) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
-    <!-- Internet sirf AI feature (Groq) ke liye. -->
+    <!-- Internet (Groq AI + Weather) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Aura ke apne gradient wallpapers set karne ke liye -->
+    <!-- Wallpaper set karna -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
-    <!-- Weather widget ke liye (location-based, user grant karega, optional) -->
+    <!-- Weather ke liye location -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Notification badges dekhe liye (Android 13+) -->
+    <!-- Notification badges -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Voice search ke liye (user grant karega, optional feature) -->
+    <!-- Voice search -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- File search / backup ke liye (user grant karega, optional) -->
+    <!-- File search -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
-    <!-- Launcher "kabza" powers: -->
-    <!-- Double-tap se screen lock (DevicePolicyManager ke liye nahi chahiye, accessibility-free way) -->
+    <!-- Notification panel swipe down -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
-    <!-- Recent apps / smart prediction ke liye (user grant karega) -->
+
+    <!-- Recent apps / smart prediction -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
@@ -56,16 +48,14 @@
             android:stateNotNeeded="true"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout">
 
-            <!-- Ye 2 lines Aura ko HOME SCREEN (launcher) banati hain -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Device Admin: double-tap se screen lock ke liye -->
+        <!-- Device Admin: double-tap screen lock -->
         <receiver
             android:name=".AuraAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"

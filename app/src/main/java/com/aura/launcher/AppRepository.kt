@@ -3,39 +3,33 @@ package com.aura.launcher
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 
-/**
- * AppInfo — ek installed app ki jaankari rakhta hai.
- *
- * activityName bhi rakhte hain taaki app ko reliably launch kar sakein
- * (sirf packageName se kabhi-kabhi launch fail hota hai = "not responding").
- */
 data class AppInfo(
     val label: String,
     val packageName: String,
-    val activityName: String,   // exact launcher activity (reliable launch)
+    val activityName: String,
     val icon: Drawable
 )
 
-/**
- * AppRepository — phone se saari installed apps nikaalta hai.
- * Offline, PackageManager se. Koi API nahi.
- */
 object AppRepository {
+
+    private const val TAG = "AuraLauncher"
 
     fun getInstalledApps(context: Context): List<AppInfo> {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
+
         val resolveInfoList: List<ResolveInfo> = pm.queryIntentActivities(intent, 0)
 
-        // Agar user ne koi icon pack chuna hai to use load karo (warna null)
         val packPkg = AuraPrefs(context).iconPack
         val iconPack = if (packPkg.isNotBlank()) {
             IconPackManager.load(context, packPkg)
@@ -45,13 +39,12 @@ object AppRepository {
             .filter { it.activityInfo.packageName != context.packageName }
             .map { info ->
                 val pkg = info.activityInfo.packageName
-                // Icon pack se icon try karo; na mile to app ka apna icon
                 val themedIcon = iconPack?.getIcon(pkg, info.activityInfo.name)
                 AppInfo(
-                    label = info.loadLabel(pm).toString(),
-                    packageName = pkg,
+                    label    = info.loadLabel(pm).toString(),
+                    packageName  = pkg,
                     activityName = info.activityInfo.name,
-                    icon = themedIcon ?: info.loadIcon(pm)
+                    icon     = themedIcon ?: info.loadIcon(pm)
                 )
             }
             .distinctBy { it.packageName }
@@ -59,54 +52,75 @@ object AppRepository {
     }
 
     /**
-     * App launch karo — RELIABLE tareeka.
+     * RELIABLE app launch — 3 fallback methods.
      *
-     * Pehle exact activity component se try karo (sabse reliable),
-     * agar woh fail ho to getLaunchIntentForPackage se, aur fail hone pe
-     * user ko politely batao (silently fail nahi — "not responding" bug fix).
+     * Method 1: getLaunchIntentForPackage (system recommended way)
+     * Method 2: Explicit ComponentName (backup)
+     * Method 3: Market/Store open (last resort)
      */
     fun launchApp(context: Context, app: AppInfo) {
-        // Try 1: exact component (best)
+        val pm = context.packageManager
+
+        // ── Method 1: System ka official launch intent ─────────────────────
+        // Ye sabse safe hai — CATEGORY_LAUNCHER aur sab auto set hota hai
+        val launchIntent = pm.getLaunchIntentForPackage(app.packageName)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(launchIntent)
+                AppUsageTracker.recordOpen(context, app.packageName)
+                Log.d(TAG, "Launched (method1): ${app.packageName}")
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "Method1 failed: ${app.packageName} — ${e.message}")
+            }
+        }
+
+        // ── Method 2: Explicit component (without CATEGORY_LAUNCHER) ────────
         try {
             val intent = Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
                 component = ComponentName(app.packageName, app.activityName)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             }
             context.startActivity(intent)
             AppUsageTracker.recordOpen(context, app.packageName)
+            Log.d(TAG, "Launched (method2): ${app.packageName}")
             return
-        } catch (_: Exception) { /* fallback below */ }
+        } catch (e: Exception) {
+            Log.w(TAG, "Method2 failed: ${app.packageName} — ${e.message}")
+        }
 
-        // Try 2: package default launch intent
+        // ── Method 3: Play Store se open karo (app reinstall ho sakti) ─────
         try {
-            val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launch)
-                AppUsageTracker.recordOpen(context, app.packageName)
-                return
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("market://details?id=${app.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        } catch (_: Exception) { /* fallback below */ }
+            context.startActivity(intent)
+            Log.d(TAG, "Opened store: ${app.packageName}")
+            return
+        } catch (_: Exception) { }
 
-        // Dono fail: user ko batao (silent freeze nahi)
-        Toast.makeText(context, "${app.label} khul nahi paayi", Toast.LENGTH_SHORT).show()
+        // Sab fail
+        Toast.makeText(context, "${app.label} nahi khul rahi", Toast.LENGTH_SHORT).show()
+        Log.e(TAG, "ALL methods failed: ${app.packageName}")
     }
 
-    /** Package name se launch (jab sirf package ho, jaise favourites). */
     fun launchByPackage(context: Context, packageName: String, allApps: List<AppInfo>) {
+        // Pehle getLaunchIntentForPackage try karo directly
+        val pm = context.packageManager
+        val launchIntent = pm.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(launchIntent)
+                AppUsageTracker.recordOpen(context, packageName)
+                return
+            } catch (_: Exception) { }
+        }
+        // Fallback: allApps list se dhundho
         val app = allApps.find { it.packageName == packageName }
         if (app != null) launchApp(context, app)
-        else {
-            try {
-                val launch = context.packageManager.getLaunchIntentForPackage(packageName)
-                launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (launch != null) context.startActivity(launch)
-            } catch (_: Exception) {
-                Toast.makeText(context, "App khul nahi paayi", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 
     fun openAppInfo(context: Context, packageName: String) {
@@ -125,5 +139,3 @@ object AppRepository {
         runCatching { context.startActivity(intent) }
     }
 }
-
-
