@@ -8,7 +8,9 @@ import android.content.SharedPreferences
  *
  * SharedPreferences use karta hai — offline, koi API nahi.
  * - Favourites (dock ke apps)
- * - Grid columns (kitne columns drawer mein)
+ * - Grid columns + home pages
+ * - Hidden apps
+ * - Gesture customization
  */
 class AuraPrefs(context: Context) {
 
@@ -40,41 +42,76 @@ class AuraPrefs(context: Context) {
         saveFavorites(current)
     }
 
-    fun isFavorite(packageName: String): Boolean =
-        getFavorites().contains(packageName)
+    fun isFavorite(packageName: String): Boolean = getFavorites().contains(packageName)
 
     private fun saveFavorites(list: List<String>) {
         prefs.edit().putString(KEY_FAVORITES, list.joinToString("|")).apply()
     }
 
-    // ---- Groq AI key (user apni daalega; APK mein hardcode NAHI) ----
+    // ---- Groq AI key ----
     var groqApiKey: String
         get() = prefs.getString(KEY_GROQ, "") ?: ""
         set(value) = prefs.edit().putString(KEY_GROQ, value.trim()).apply()
 
     fun hasAiKey(): Boolean = groqApiKey.isNotBlank()
 
-    // ---- Smart prediction on/off ----
+    // ---- Smart prediction ----
     var smartPredictionEnabled: Boolean
         get() = prefs.getBoolean(KEY_PREDICT, true)
         set(value) = prefs.edit().putBoolean(KEY_PREDICT, value).apply()
 
-    // ---- Selected icon pack (package name; "" = default icons) ----
+    // ---- Icon pack ----
     var iconPack: String
         get() = prefs.getString(KEY_ICONPACK, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ICONPACK, value).apply()
 
-    // ---- Category view preference (folders ya grid) ----
+    // ---- Category view ----
     var showCategoryView: Boolean
         get() = prefs.getBoolean(KEY_CATEGORY_VIEW, false)
         set(value) = prefs.edit().putBoolean(KEY_CATEGORY_VIEW, value).apply()
 
+    // ---- Hidden apps ---- (chhupaye gaye apps drawer mein nahi dikhte)
+    fun getHiddenApps(): Set<String> {
+        val raw = prefs.getString(KEY_HIDDEN, "") ?: ""
+        return if (raw.isBlank()) emptySet() else raw.split("|").toSet()
+    }
+
+    fun hideApp(pkg: String) {
+        val set = getHiddenApps().toMutableSet().also { it.add(pkg) }
+        prefs.edit().putString(KEY_HIDDEN, set.joinToString("|")).apply()
+    }
+
+    fun showApp(pkg: String) {
+        val set = getHiddenApps().toMutableSet().also { it.remove(pkg) }
+        prefs.edit().putString(KEY_HIDDEN, set.joinToString("|")).apply()
+    }
+
+    fun isHidden(pkg: String): Boolean = pkg in getHiddenApps()
+
+    // ---- Gesture actions ----
+    // Values: "NOTIFICATIONS" | "LOCK_SCREEN" | "OPEN_DRAWER" | "NOTHING"
+    var swipeDownAction: String
+        get() = prefs.getString(KEY_SWIPE_DOWN, "NOTIFICATIONS") ?: "NOTIFICATIONS"
+        set(v) = prefs.edit().putString(KEY_SWIPE_DOWN, v).apply()
+
+    var swipeUpAction: String
+        get() = prefs.getString(KEY_SWIPE_UP, "OPEN_DRAWER") ?: "OPEN_DRAWER"
+        set(v) = prefs.edit().putString(KEY_SWIPE_UP, v).apply()
+
+    var doubleTapAction: String
+        get() = prefs.getString(KEY_DOUBLE_TAP, "LOCK_SCREEN") ?: "LOCK_SCREEN"
+        set(v) = prefs.edit().putString(KEY_DOUBLE_TAP, v).apply()
+
     companion object {
-        private const val KEY_COLUMNS = "grid_columns"
-        private const val KEY_FAVORITES = "favorites"
-        private const val KEY_GROQ = "groq_api_key"
-        private const val KEY_PREDICT = "smart_prediction"
-        private const val KEY_ICONPACK = "icon_pack"
+        private const val KEY_COLUMNS       = "grid_columns"
+        private const val KEY_FAVORITES     = "favorites"
+        private const val KEY_GROQ          = "groq_api_key"
+        private const val KEY_PREDICT       = "smart_prediction"
+        private const val KEY_ICONPACK      = "icon_pack"
         private const val KEY_CATEGORY_VIEW = "show_categories"
+        private const val KEY_HIDDEN        = "hidden_apps"
+        private const val KEY_SWIPE_DOWN    = "gesture_swipe_down"
+        private const val KEY_SWIPE_UP      = "gesture_swipe_up"
+        private const val KEY_DOUBLE_TAP    = "gesture_double_tap"
     }
 }

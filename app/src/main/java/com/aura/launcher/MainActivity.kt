@@ -162,11 +162,10 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
 
     LaunchedEffect(Unit) {
         apps = AppRepository.getInstalledApps(context)
-        VoiceSearch.setApps(apps)   // voice command app khol sake
+        VoiceSearch.setApps(apps)
         isDefault = LauncherActions.isDefaultLauncher(context)
     }
 
-    // Drawer band hone / apps load hone pe recents + prediction refresh
     LaunchedEffect(apps, drawerOpen.value) {
         if (apps.isNotEmpty()) {
             recents = RecentApps.getRecentApps(context, apps)
@@ -182,12 +181,13 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         favPkgs.mapNotNull { pkg -> apps.find { it.packageName == pkg } }
     }
 
-    val pageCount = remember { HomePageManager.getPageCount(context) }
+    // Live page count — Settings se turant reflect hota hai
+    var pageCount by remember { mutableStateOf(HomePageManager.getPageCount(context)) }
     val pagerState = rememberPagerState(initialPage = 0) { pageCount }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ---- HOME SCREEN (background = premium gradient overlay) ----
+        // ---- HOME SCREEN ----
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -202,24 +202,50 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 )
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount < -25) drawerOpen.value = true
-                        else if (dragAmount > 25) LauncherActions.openNotifications(context)
+                        if (dragAmount < -25) {
+                            when (prefs.swipeUpAction) {
+                                "OPEN_DRAWER"   -> drawerOpen.value = true
+                                "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                                "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                            }
+                        } else if (dragAmount > 25) {
+                            when (prefs.swipeDownAction) {
+                                "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                                "OPEN_DRAWER"   -> drawerOpen.value = true
+                                "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                            }
+                        }
                     }
                 }
                 .pointerInput(Unit) {
-                    detectTapGestures(onDoubleTap = { LockHelper.lockScreen(context) })
+                    detectTapGestures(onDoubleTap = {
+                        when (prefs.doubleTapAction) {
+                            "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                            "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                            "OPEN_DRAWER"   -> drawerOpen.value = true
+                        }
+                    })
                 }
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top: clock + weather (same on all pages)
+                // Top: battery row + clock + weather (same on all pages)
                 Column {
+                    // Battery widget — top right
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 48.dp, end = 20.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        BatteryWidget()
+                    }
                     if (!isDefault) {
                         SetDefaultBanner(onClick = { LauncherActions.requestSetDefault(context) })
                     }
-                    ClockHeader(modifier = Modifier.padding(top = 56.dp))
+                    ClockHeader(modifier = Modifier.padding(top = 4.dp))
                     WeatherWidget(modifier = Modifier.padding(top = 4.dp))
                 }
 
@@ -353,7 +379,8 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 apps = apps,
                 columns = prefs.gridColumns,
                 onAppClick = { AppRepository.launchApp(context, it) },
-                onClose = { drawerOpen.value = false }
+                onClose = { drawerOpen.value = false },
+                onPageCountChanged = { pageCount = it }
             )
         }
     }
@@ -496,7 +523,8 @@ fun AppDrawer(
     apps: List<AppInfo>,
     columns: Int,
     onAppClick: (AppInfo) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onPageCountChanged: (Int) -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
@@ -507,11 +535,14 @@ fun AppDrawer(
     var cols by remember { mutableStateOf(columns) }
     var showCategories by remember { mutableStateOf(prefs.showCategoryView) }
 
+    // Hidden apps refresh trigger
+    var hiddenVersion by remember { mutableStateOf(0) }
+
     // AI state
     var aiAnswer by remember { mutableStateOf<String?>(null) }
     var aiLoading by remember { mutableStateOf(false) }
 
-    // File search (universal search): query par files bhi dhoondho
+    // File search
     var files by remember { mutableStateOf<List<FileResult>>(emptyList()) }
     LaunchedEffect(query) {
         files = if (query.length >= 2) {
@@ -521,9 +552,11 @@ fun AppDrawer(
         } else emptyList()
     }
 
-    val filtered = remember(query, apps) {
-        if (query.isBlank()) apps
-        else apps.filter { it.label.contains(query, ignoreCase = true) }
+    // Hidden apps filter — hiddenVersion se recompute hoga jab user hide/unhide kare
+    val filtered = remember(query, apps, hiddenVersion) {
+        val hidden = prefs.getHiddenApps()
+        if (query.isBlank()) apps.filter { it.packageName !in hidden }
+        else apps.filter { it.label.contains(query, ignoreCase = true) && it.packageName !in hidden }
     }
 
     // Backup: file create karke usme settings likho
@@ -549,10 +582,13 @@ fun AppDrawer(
     if (settingsOpen) {
         SettingsPanel(
             prefs = prefs,
+            apps = apps,
             onClose = { settingsOpen = false },
             onChanged = { cols = prefs.gridColumns },
             onBackup = { backupLauncher.launch("aura_backup.json") },
-            onRestore = { restoreLauncher.launch(arrayOf("application/json")) }
+            onRestore = { restoreLauncher.launch(arrayOf("application/json")) },
+            onPageCountChanged = onPageCountChanged,
+            onHiddenChanged = { hiddenVersion++ }
         )
     }
 
@@ -646,7 +682,11 @@ fun AppDrawer(
                         .padding(horizontal = 8.dp)
                 ) {
                     items(filtered, key = { it.packageName }) { app ->
-                        AppIcon(app = app, onClick = { onAppClick(app) })
+                        AppIcon(
+                            app = app,
+                            onClick = { onAppClick(app) },
+                            onHideToggled = { hiddenVersion++ }
+                        )
                     }
                     // Universal search: files bhi dikhao (jab query ho)
                     if (files.isNotEmpty()) {

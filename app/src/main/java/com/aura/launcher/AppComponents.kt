@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +34,8 @@ fun AppIcon(
     app: AppInfo,
     iconSize: Int = 56,
     showLabel: Boolean = true,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onHideToggled: (() -> Unit)? = null   // drawer ko refresh karne ke liye
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -42,6 +45,7 @@ fun AppIcon(
     var shortcuts by remember { mutableStateOf<List<ShortcutHelper.AuraShortcut>>(emptyList()) }
     var pageCount by remember { mutableStateOf(1) }
     var pageStatuses by remember { mutableStateOf(emptyList<Boolean>()) }
+    var hiddenState by remember { mutableStateOf(prefs.isHidden(app.packageName)) }
 
     LaunchedEffect(app.packageName) {
         badgeCount = NotificationBadgeHelper.getNotificationCount(context, app.packageName)
@@ -166,6 +170,26 @@ fun AppIcon(
                 leadingIcon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF4444)) },
                 onClick = {
                     AppRepository.uninstallApp(context, app.packageName)
+                    menuOpen = false
+                }
+            )
+
+            // Hide / Unhide app
+            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+            DropdownMenuItem(
+                text = { Text(if (hiddenState) "Unhide app" else "Hide app", fontSize = 14.sp) },
+                leadingIcon = {
+                    Icon(
+                        if (hiddenState) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        null,
+                        tint = Color(0xFF9D86FF)
+                    )
+                },
+                onClick = {
+                    if (hiddenState) prefs.showApp(app.packageName)
+                    else prefs.hideApp(app.packageName)
+                    hiddenState = !hiddenState
+                    onHideToggled?.invoke()
                     menuOpen = false
                 }
             )

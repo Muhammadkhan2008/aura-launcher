@@ -21,21 +21,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 
-/**
- * SettingsPanel — settings dialog.
- *
- * - App drawer columns (3-6)
- * - Launcher "kabza" powers: default banao, recent apps permission,
- *   double-tap-to-lock permission.
- * Sab offline SharedPreferences / system settings se.
- */
 @Composable
 fun SettingsPanel(
     prefs: AuraPrefs,
+    apps: List<AppInfo> = emptyList(),
     onClose: () -> Unit,
     onChanged: () -> Unit,
     onBackup: () -> Unit = {},
-    onRestore: () -> Unit = {}
+    onRestore: () -> Unit = {},
+    onPageCountChanged: (Int) -> Unit = {},
+    onHiddenChanged: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var columns by remember { mutableStateOf(prefs.gridColumns) }
@@ -43,6 +38,12 @@ fun SettingsPanel(
     var apiKey by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
     var iconPack by remember { mutableStateOf(prefs.iconPack) }
+    // Gesture actions
+    var swipeDown   by remember { mutableStateOf(prefs.swipeDownAction) }
+    var swipeUp     by remember { mutableStateOf(prefs.swipeUpAction) }
+    var doubleTap   by remember { mutableStateOf(prefs.doubleTapAction) }
+    // Hidden apps refresh
+    var hiddenVersion by remember { mutableStateOf(0) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -93,6 +94,33 @@ fun SettingsPanel(
                     valueRange = 1f..5f,
                     steps = 3
                 )
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
+                // ---- Gesture customization ----
+                Text(
+                    "Gestures",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Har gesture pe koi bhi action assign karo.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                GestureRow("Swipe up:", swipeUp) {
+                    swipeUp = it; prefs.swipeUpAction = it
+                }
+                GestureRow("Swipe down:", swipeDown) {
+                    swipeDown = it; prefs.swipeDownAction = it
+                }
+                GestureRow("Double tap:", doubleTap) {
+                    doubleTap = it; prefs.doubleTapAction = it
+                }
 
                 Spacer(Modifier.height(8.dp))
                 Divider(color = Color.White.copy(alpha = 0.15f))
@@ -254,6 +282,57 @@ fun SettingsPanel(
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
 
+                // ---- Hidden Apps section ----
+                Text(
+                    "Hidden Apps",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Ye apps drawer mein nahi dikhte. Yahan se wapas dikhao.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                val hiddenPkgs = remember(hiddenVersion) { prefs.getHiddenApps() }
+                if (hiddenPkgs.isEmpty()) {
+                    Text(
+                        "Koi app hidden nahi hai. Long-press kisi app pe → Hide app.",
+                        color = Color.White.copy(alpha = 0.45f),
+                        fontSize = 12.sp
+                    )
+                } else {
+                    hiddenPkgs.forEach { pkg ->
+                        val appInfo = apps.find { it.packageName == pkg }
+                        val label = appInfo?.label ?: pkg
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                label,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    prefs.showApp(pkg)
+                                    hiddenVersion++
+                                    onHiddenChanged()
+                                }
+                            ) { Text("Unhide", color = Color(0xFF9D86FF), fontSize = 12.sp) }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
                 // ---- Backup / Restore section ----
                 Text(
                     "Backup & Restore",
@@ -300,6 +379,7 @@ fun SettingsPanel(
                         prefs.groqApiKey = apiKey
                         prefs.smartPredictionEnabled = predictOn
                         prefs.iconPack = iconPack
+                        onPageCountChanged(pageCount)
                         onChanged()
                         onClose()
                     }) {
@@ -389,3 +469,43 @@ private fun WallpaperSwatch(
     }
 }
 
+/** Gesture action row — label + dropdown to pick action. */
+@Composable
+private fun GestureRow(label: String, value: String, onValueChange: (String) -> Unit) {
+    val options = listOf(
+        "NOTIFICATIONS" to "🔔 Notifications",
+        "OPEN_DRAWER"   to "📱 App drawer",
+        "LOCK_SCREEN"   to "🔒 Lock screen",
+        "NOTHING"       to "— Nothing"
+    )
+    var expanded by remember { mutableStateOf(false) }
+    val currentLabel = options.find { it.first == value }?.second ?: value
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(currentLabel, color = Color.White, fontSize = 12.sp)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { (key, display) ->
+                    DropdownMenuItem(
+                        text = { Text(display, fontSize = 13.sp) },
+                        onClick = { onValueChange(key); expanded = false }
+                    )
+                }
+            }
+        }
+    }
+}
