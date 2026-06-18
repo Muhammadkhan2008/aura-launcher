@@ -296,14 +296,15 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
 fun SmartSuggestRow(predicted: List<AppInfo>, onClick: (AppInfo) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            "✨ Suggested for you",
-            color = Color.White.copy(alpha = 0.85f),
-            fontSize = 12.sp,
-            modifier = Modifier.padding(start = 24.dp, bottom = 6.dp)
+            "✨ For you",
+            color = Color(0xFF9D86FF),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
         )
         LazyRow(modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
             items(predicted, key = { it.packageName }) { app ->
-                AppIcon(app = app, iconSize = 50, showLabel = false, onClick = { onClick(app) })
+                AppIcon(app = app, iconSize = 56, showLabel = false, onClick = { onClick(app) })
             }
         }
     }
@@ -352,9 +353,10 @@ fun RecentRow(recents: List<AppInfo>) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             "Recent",
-            color = Color.White.copy(alpha = 0.7f),
-            fontSize = 12.sp,
-            modifier = Modifier.padding(start = 24.dp, bottom = 6.dp)
+            color = Color(0xFF9D86FF),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
         )
         LazyRow(
             modifier = Modifier
@@ -364,7 +366,7 @@ fun RecentRow(recents: List<AppInfo>) {
             items(recents, key = { it.packageName }) { app ->
                 AppIcon(
                     app = app,
-                    iconSize = 48,
+                    iconSize = 56,
                     showLabel = false,
                     onClick = { AppRepository.launchApp(context, app) }
                 )
@@ -404,7 +406,7 @@ fun DockBar(favorites: List<AppInfo>) {
                 favorites.forEach { app ->
                     AppIcon(
                         app = app,
-                        iconSize = 52,
+                        iconSize = 64,
                         showLabel = false,
                         onClick = { AppRepository.launchApp(context, app) }
                     )
@@ -607,6 +609,8 @@ fun GlassSearchBar(
     val context = LocalContext.current
     var showHistory by remember { mutableStateOf(false) }
     var history by remember { mutableStateOf(emptyList<String>()) }
+    val prefs = remember { AuraPrefs(context) }
+    val hasAiKey = remember { prefs.hasAiKey() }
 
     LaunchedEffect(Unit) {
         history = SearchHistory.getHistory(context)
@@ -682,11 +686,14 @@ fun GlassSearchBar(
         }
         Spacer(Modifier.width(8.dp))
         Button(
-            onClick = onAskAi,
+            onClick = if (hasAiKey) onAskAi else { {} },
+            enabled = hasAiKey,
             shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6))
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (hasAiKey) Color(0xFF6C4DF6) else Color.Gray.copy(alpha = 0.5f)
+            )
         ) {
-            Text("AI")
+            Text("AI", color = if (hasAiKey) Color.White else Color.White.copy(alpha = 0.5f))
         }
     }
 }

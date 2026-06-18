@@ -39,13 +39,14 @@ fun ClockHeader(modifier: Modifier = Modifier) {
         Text(
             text = timeFmt.format(now),
             color = Color.White,
-            fontSize = 64.sp,
-            fontWeight = FontWeight.Light
+            fontSize = 72.sp,
+            fontWeight = FontWeight.Thin
         )
         Text(
             text = dateFmt.format(now),
-            color = Color.White.copy(alpha = 0.8f),
-            fontSize = 16.sp
+            color = Color(0xFF9D86FF),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
         )
     }
 }
