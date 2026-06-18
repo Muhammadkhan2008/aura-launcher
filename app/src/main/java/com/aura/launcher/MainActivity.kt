@@ -19,9 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -599,12 +597,9 @@ fun GlassSearchBar(
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color.White.copy(alpha = 0.7f)) },
                 trailingIcon = {
-                    // Mic button — voice se app search/open
                     IconButton(onClick = {
                         VoiceSearch.startListening(context) { spoken ->
-                            // Bola hua text search box mein daal do
                             onQueryChange(spoken)
-                            // App match ho to seedha khol do
                             VoiceSearch.tryOpenApp(context, spoken)
                         }
                     }) {
@@ -613,7 +608,11 @@ fun GlassSearchBar(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onFocusEvent { if (it.isFocused && query.isEmpty()) showHistory = true else showHistory = false },
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            if (query.isEmpty()) showHistory = !showHistory
+                        })
+                    },
                 shape = RoundedCornerShape(18.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -629,6 +628,7 @@ fun GlassSearchBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 48.dp)
+                        .zIndex(1f)
                 ) {
                     LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
                         items(history) { h ->
