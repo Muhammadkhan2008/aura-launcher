@@ -80,7 +80,12 @@ class MainActivity : ComponentActivity() {
             }
         })
 
-        setContent { AuraTheme { AuraHomeScreen(drawerOpenState) } }
+        setContent {
+            val isDark = remember { mutableStateOf(ThemeManager.isDarkMode(this@MainActivity)) }
+            AuraTheme(isDarkMode = isDark.value) {
+                AuraHomeScreen(drawerOpenState, isDark)
+            }
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -151,7 +156,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
+fun AuraHomeScreen(drawerOpen: MutableState<Boolean>, isDarkMode: MutableState<Boolean>? = null) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
 
