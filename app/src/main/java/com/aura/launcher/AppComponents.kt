@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
@@ -17,9 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,16 +29,12 @@ fun AppIcon(
     app: AppInfo,
     iconSize: Int = 56,
     showLabel: Boolean = true,
-    onClick: () -> Unit,
-    pageCount: Int = 1
+    onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
     var menuOpen by remember { mutableStateOf(false) }
     val prefs = remember { AuraPrefs(context) }
     var badgeCount by remember { mutableStateOf(0) }
-    var shortcuts by remember { mutableStateOf<List<ShortcutHelper.AuraShortcut>>(emptyList()) }
-    var pageStatuses by remember { mutableStateOf(List(maxOf(0, pageCount - 1)) { false }) }
 
     LaunchedEffect(app.packageName) {
         badgeCount = NotificationBadgeHelper.getNotificationCount(context, app.packageName)
@@ -53,14 +46,7 @@ fun AppIcon(
             modifier = Modifier
                 .combinedClickable(
                     onClick = onClick,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        shortcuts = ShortcutHelper.getShortcuts(context, app.packageName)
-                        pageStatuses = List(maxOf(0, pageCount - 1)) { idx ->
-                            HomePageManager.getPageApps(context, idx + 1).contains(app.packageName)
-                        }
-                        menuOpen = true
-                    }
+                    onLongClick = { menuOpen = true }
                 )
                 .padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
@@ -95,19 +81,6 @@ fun AppIcon(
         }
 
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            Text(app.label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
-
-            shortcuts.forEach { shortcut ->
-                DropdownMenuItem(
-                    text = { Text(shortcut.label, fontSize = 14.sp) },
-                    onClick = { ShortcutHelper.launch(context, shortcut); menuOpen = false }
-                )
-            }
-
-            if (shortcuts.isNotEmpty()) HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
-
             val isFav = prefs.isFavorite(app.packageName)
             DropdownMenuItem(
                 text = { Text(if (isFav) "Remove from dock" else "Add to dock") },
@@ -127,25 +100,6 @@ fun AppIcon(
                 leadingIcon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF4444)) },
                 onClick = { AppRepository.uninstallApp(context, app.packageName); menuOpen = false }
             )
-
-            if (pageCount > 1) {
-                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
-                pageStatuses.forEachIndexed { idx, isOnPage ->
-                    val pageDisplay = idx + 2
-                    val pageIndex = idx + 1
-                    DropdownMenuItem(
-                        text = { Text(if (isOnPage) "Remove from Page $pageDisplay" else "Add to Page $pageDisplay") },
-                        leadingIcon = { Icon(if (isOnPage) Icons.Filled.Delete else Icons.Filled.Add, null,
-                            tint = if (isOnPage) Color(0xFFFF4444) else Color(0xFF9D86FF)) },
-                        onClick = {
-                            if (isOnPage) HomePageManager.removeAppFromPage(context, pageIndex, app.packageName)
-                            else HomePageManager.addAppToPage(context, pageIndex, app.packageName)
-                            pageStatuses = pageStatuses.toMutableList().also { it[idx] = !isOnPage }
-                            menuOpen = false
-                        }
-                    )
-                }
-            }
         }
     }
 }
