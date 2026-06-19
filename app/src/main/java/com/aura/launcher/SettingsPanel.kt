@@ -31,10 +31,10 @@ fun SettingsPanel(
     onRestore: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var columns by remember { mutableStateOf(prefs.gridColumns) }
-    var apiKey by remember { mutableStateOf(prefs.groqApiKey) }
+    var columns   by remember { mutableStateOf(prefs.gridColumns) }
+    var apiKey    by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
-    var iconPack by remember { mutableStateOf(prefs.iconPack) }
+    var iconPack  by remember { mutableStateOf(prefs.iconPack) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -86,17 +86,6 @@ fun SettingsPanel(
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 11.sp
                 )
-                Spacer(Modifier.height(8.dp))
-                GestureRow("Swipe up:", swipeUp) {
-                    swipeUp = it; prefs.swipeUpAction = it
-                }
-                GestureRow("Swipe down:", swipeDown) {
-                    swipeDown = it; prefs.swipeDownAction = it
-                }
-                GestureRow("Double tap:", doubleTap) {
-                    doubleTap = it; prefs.doubleTapAction = it
-                }
-
                 Spacer(Modifier.height(8.dp))
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
@@ -393,46 +382,5 @@ private fun WallpaperSwatch(
             color = Color.White.copy(alpha = 0.8f),
             fontSize = 11.sp
         )
-    }
-}
-
-/** Gesture action row — label + dropdown to pick action. */
-@Composable
-private fun GestureRow(label: String, value: String, onValueChange: (String) -> Unit) {
-    val options = listOf(
-        "NOTIFICATIONS" to "🔔 Notifications",
-        "OPEN_DRAWER"   to "📱 App drawer",
-        "LOCK_SCREEN"   to "🔒 Lock screen",
-        "NOTHING"       to "— Nothing"
-    )
-    var expanded by remember { mutableStateOf(false) }
-    val currentLabel = options.find { it.first == value }?.second ?: value
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Box {
-            OutlinedButton(
-                onClick = { expanded = true },
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text(currentLabel, color = Color.White, fontSize = 12.sp)
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { (key, display) ->
-                    DropdownMenuItem(
-                        text = { Text(display, fontSize = 13.sp) },
-                        onClick = { onValueChange(key); expanded = false }
-                    )
-                }
-            }
-        }
     }
 }
