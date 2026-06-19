@@ -20,9 +20,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -81,9 +78,8 @@ class MainActivity : ComponentActivity() {
         })
 
         setContent {
-            val isDark = remember { mutableStateOf(ThemeManager.isDarkMode(this@MainActivity)) }
-            AuraTheme(isDarkMode = isDark.value) {
-                AuraHomeScreen(drawerOpenState, isDark)
+            AuraTheme {
+                AuraHomeScreen(drawerOpenState)
             }
         }
     }
@@ -156,7 +152,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AuraHomeScreen(drawerOpen: MutableState<Boolean>, isDarkMode: MutableState<Boolean>? = null) {
+fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
 
@@ -185,10 +181,6 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>, isDarkMode: MutableState<B
         val favPkgs = prefs.getFavorites()
         favPkgs.mapNotNull { pkg -> apps.find { it.packageName == pkg } }
     }
-
-    // Live page count — Settings se turant reflect hota hai
-    var pageCount by remember { mutableStateOf(HomePageManager.getPageCount(context)) }
-    val pagerState = rememberPagerState(initialPage = 0) { pageCount }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -254,91 +246,23 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>, isDarkMode: MutableState<B
                     WeatherWidget(modifier = Modifier.padding(top = 4.dp))
                 }
 
-                // Middle: swipeable pages
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) { page ->
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (page == 0) {
-                            // Page 0: suggestions + recents
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                if (predicted.isNotEmpty()) {
-                                    SmartSuggestRow(predicted = predicted) {
-                                        AppRepository.launchApp(context, it)
-                                    }
-                                }
-                                if (recents.isNotEmpty()) {
-                                    RecentRow(recents = recents)
-                                }
-                            }
-                        } else {
-                            // Other pages: user ke pinned apps
-                            val pageApps = remember(page) {
-                                HomePageManager.getPageApps(context, page)
-                                    .mapNotNull { pkg -> apps.find { it.packageName == pkg } }
-                            }
-                            if (pageApps.isEmpty()) {
-                                Text(
-                                    "Long-press kisi app pe\n→ \"Page ${page + 1} mein add karo\"",
-                                    color = Color.White.copy(alpha = 0.4f),
-                                    fontSize = 13.sp,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                            } else {
-                                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                ) {
-                                    androidx.compose.foundation.lazy.grid.items(pageApps, key = { it.packageName }) { app ->
-                                        AppIcon(app = app, iconSize = 52, onClick = { AppRepository.launchApp(context, app) })
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Page dots indicator
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 4.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(pageCount) { i ->
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 3.dp)
-                                .size(if (pagerState.currentPage == i) 8.dp else 5.dp)
-                                .background(
-                                    if (pagerState.currentPage == i) Color(0xFF9D86FF)
-                                    else Color.White.copy(alpha = 0.35f),
-                                    CircleShape
-                                )
-                        )
-                    }
-                }
-
+                // Middle: suggestions + recents
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Swipe up for apps  ▲",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                    if (predicted.isNotEmpty()) {
+                        SmartSuggestRow(predicted = predicted) { AppRepository.launchApp(context, it) }
+                    }
+                    if (recents.isNotEmpty()) {
+                        RecentRow(recents = recents)
+                    }
+                    Text("Swipe up for apps  ▲",
+                        color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 16.dp))
                     DockBar(favorites = favorites)
                 }
 
-                // Bottom navbar (back, home, recents) — system buttons ki tarah
+                // Bottom navbar
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color.Black.copy(alpha = 0.40f))
@@ -346,29 +270,17 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>, isDarkMode: MutableState<B
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Back button
-                    IconButton(
-                        onClick = { /* System back — already handled */ },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(22.dp))
+                    IconButton(onClick = {}, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.ArrowBack, null, tint = Color.White, modifier = Modifier.size(22.dp))
                     }
-                    // Home button (currently home, so just visual)
-                    IconButton(
-                        onClick = { /* Already on home */ },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.Home, "Home", tint = Color(0xFF9D86FF), modifier = Modifier.size(22.dp))
+                    IconButton(onClick = {}, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Home, null, tint = Color(0xFF9D86FF), modifier = Modifier.size(22.dp))
                     }
-                    // Recents button
-                    IconButton(
-                        onClick = {
-                            val running = RecentsHelper.getRunningTasks(context, 8)
-                            android.widget.Toast.makeText(context, if (running.isEmpty()) "No recent apps" else "${running.size} recent apps", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.MoreVert, "Recents", tint = Color.White, modifier = Modifier.size(22.dp))
+                    IconButton(onClick = {
+                        val r = RecentsHelper.getRunningTasks(context, 8)
+                        android.widget.Toast.makeText(context, "${r.size} recent apps", android.widget.Toast.LENGTH_SHORT).show()
+                    }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.MoreVert, null, tint = Color.White, modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -384,8 +296,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>, isDarkMode: MutableState<B
                 apps = apps,
                 columns = prefs.gridColumns,
                 onAppClick = { AppRepository.launchApp(context, it) },
-                onClose = { drawerOpen.value = false },
-                onPageCountChanged = { pageCount = it }
+                onClose = { drawerOpen.value = false }
             )
         }
     }
@@ -528,8 +439,7 @@ fun AppDrawer(
     apps: List<AppInfo>,
     columns: Int,
     onAppClick: (AppInfo) -> Unit,
-    onClose: () -> Unit,
-    onPageCountChanged: (Int) -> Unit = {}
+    onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
@@ -539,9 +449,6 @@ fun AppDrawer(
     var settingsOpen by remember { mutableStateOf(false) }
     var cols by remember { mutableStateOf(columns) }
     var showCategories by remember { mutableStateOf(prefs.showCategoryView) }
-
-    // Hidden apps refresh trigger
-    var hiddenVersion by remember { mutableStateOf(0) }
 
     // AI state
     var aiAnswer by remember { mutableStateOf<String?>(null) }
@@ -557,10 +464,8 @@ fun AppDrawer(
         } else emptyList()
     }
 
-    // Hidden apps filter — hiddenVersion se recompute hoga jab user hide/unhide kare
-    val filtered = remember(query, apps, hiddenVersion) {
-        val hidden = prefs.getHiddenApps()
-        if (query.isBlank()) apps.filter { it.packageName !in hidden }
+    val filtered = remember(query, apps) {
+        if (query.isBlank()) apps
         else apps.filter { it.label.contains(query, ignoreCase = true) && it.packageName !in hidden }
     }
 
@@ -591,9 +496,7 @@ fun AppDrawer(
             onClose = { settingsOpen = false },
             onChanged = { cols = prefs.gridColumns },
             onBackup = { backupLauncher.launch("aura_backup.json") },
-            onRestore = { restoreLauncher.launch(arrayOf("application/json")) },
-            onPageCountChanged = onPageCountChanged,
-            onHiddenChanged = { hiddenVersion++ }
+            onRestore = { restoreLauncher.launch(arrayOf("application/json")) }
         )
     }
 
@@ -689,8 +592,7 @@ fun AppDrawer(
                     items(filtered, key = { it.packageName }) { app ->
                         AppIcon(
                             app = app,
-                            onClick = { onAppClick(app) },
-                            onHideToggled = { hiddenVersion++ }
+                            onClick = { onAppClick(app) }
                         )
                     }
                     // Universal search: files bhi dikhao (jab query ho)

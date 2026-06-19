@@ -28,22 +28,13 @@ fun SettingsPanel(
     onClose: () -> Unit,
     onChanged: () -> Unit,
     onBackup: () -> Unit = {},
-    onRestore: () -> Unit = {},
-    onPageCountChanged: (Int) -> Unit = {},
-    onHiddenChanged: () -> Unit = {}
+    onRestore: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var columns by remember { mutableStateOf(prefs.gridColumns) }
-    var pageCount by remember { mutableStateOf(HomePageManager.getPageCount(context)) }
     var apiKey by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
     var iconPack by remember { mutableStateOf(prefs.iconPack) }
-    // Gesture actions
-    var swipeDown   by remember { mutableStateOf(prefs.swipeDownAction) }
-    var swipeUp     by remember { mutableStateOf(prefs.swipeUpAction) }
-    var doubleTap   by remember { mutableStateOf(prefs.doubleTapAction) }
-    // Hidden apps refresh
-    var hiddenVersion by remember { mutableStateOf(0) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -78,22 +69,6 @@ fun SettingsPanel(
                 Spacer(Modifier.height(8.dp))
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
-
-                Text("Home pages: $pageCount", color = Color.White, fontSize = 15.sp)
-                Text(
-                    "Left/right swipe se pages switch karo. Har page pe alag apps pin karo.",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 11.sp
-                )
-                Slider(
-                    value = pageCount.toFloat(),
-                    onValueChange = {
-                        pageCount = it.toInt()
-                        HomePageManager.setPageCount(context, it.toInt())
-                    },
-                    valueRange = 1f..5f,
-                    steps = 3
-                )
 
                 Spacer(Modifier.height(8.dp))
                 Divider(color = Color.White.copy(alpha = 0.15f))
@@ -282,53 +257,6 @@ fun SettingsPanel(
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
 
-                // ---- Hidden Apps section ----
-                Text(
-                    "Hidden Apps",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Text(
-                    "Ye apps drawer mein nahi dikhte. Yahan se wapas dikhao.",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 11.sp
-                )
-                Spacer(Modifier.height(8.dp))
-                val hiddenPkgs = remember(hiddenVersion) { prefs.getHiddenApps() }
-                if (hiddenPkgs.isEmpty()) {
-                    Text(
-                        "Koi app hidden nahi hai. Long-press kisi app pe → Hide app.",
-                        color = Color.White.copy(alpha = 0.45f),
-                        fontSize = 12.sp
-                    )
-                } else {
-                    hiddenPkgs.forEach { pkg ->
-                        val appInfo = apps.find { it.packageName == pkg }
-                        val label = appInfo?.label ?: pkg
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                label,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedButton(
-                                onClick = {
-                                    prefs.showApp(pkg)
-                                    hiddenVersion++
-                                    onHiddenChanged()
-                                }
-                            ) { Text("Unhide", color = Color(0xFF9D86FF), fontSize = 12.sp) }
-                        }
-                    }
-                }
-
                 Spacer(Modifier.height(8.dp))
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
@@ -379,7 +307,6 @@ fun SettingsPanel(
                         prefs.groqApiKey = apiKey
                         prefs.smartPredictionEnabled = predictOn
                         prefs.iconPack = iconPack
-                        onPageCountChanged(pageCount)
                         onChanged()
                         onClose()
                     }) {
