@@ -2,6 +2,7 @@ package com.aura.launcher
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,13 +16,25 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -35,6 +48,8 @@ fun AppIcon(
     var menuOpen by remember { mutableStateOf(false) }
     val prefs = remember { AuraPrefs(context) }
     var badgeCount by remember { mutableStateOf(0) }
+    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
 
     LaunchedEffect(app.packageName) {
         badgeCount = NotificationBadgeHelper.getNotificationCount(context, app.packageName)
@@ -45,8 +60,15 @@ fun AppIcon(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { menuOpen = true }
+                    onClick = {
+                        view.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+                        onClick()
+                    },
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        view.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+                        menuOpen = true
+                    }
                 )
                 .padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
@@ -80,26 +102,139 @@ fun AppIcon(
             }
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        if (menuOpen) {
             val isFav = prefs.isFavorite(app.packageName)
-            DropdownMenuItem(
-                text = { Text(if (isFav) "Remove from dock" else "Add to dock") },
-                leadingIcon = { Icon(Icons.Filled.Star, null, tint = Color(0xFF9D86FF)) },
-                onClick = {
+            CustomQuickActionsMenu(
+                app = app,
+                isFav = isFav,
+                onDismiss = { menuOpen = false },
+                onToggleFav = {
                     if (isFav) prefs.removeFavorite(app.packageName) else prefs.addFavorite(app.packageName)
-                    menuOpen = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("App info") },
-                leadingIcon = { Icon(Icons.Filled.Info, null, tint = Color(0xFF9D86FF)) },
-                onClick = { AppRepository.openAppInfo(context, app.packageName); menuOpen = false }
-            )
-            DropdownMenuItem(
-                text = { Text("Uninstall") },
-                leadingIcon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF4444)) },
-                onClick = { AppRepository.uninstallApp(context, app.packageName); menuOpen = false }
+                },
+                onAppInfo = { AppRepository.openAppInfo(context, app.packageName) },
+                onUninstall = { AppRepository.uninstallApp(context, app.packageName) }
             )
         }
+    }
+}
+
+class SmartMenuPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val margin = 24 // Screen edges se safe padding (px)
+
+        // Horizontal (X) Alignment: Try to center relative to the app icon
+        var x = anchorBounds.left + (anchorBounds.width / 2) - (popupContentSize.width / 2)
+
+        // Prevent horizontal clipping (Left & Right boundaries)
+        if (x < margin) {
+            x = margin
+        } else if (x + popupContentSize.width > windowSize.width - margin) {
+            x = windowSize.width - popupContentSize.width - margin
+        }
+
+        // Vertical (Y) Alignment: Prefer below the icon
+        var y = anchorBounds.bottom + 16
+
+        // Prevent vertical clipping (Bottom boundary), flip to above the icon if needed
+        if (y + popupContentSize.height > windowSize.height - margin) {
+            y = anchorBounds.top - popupContentSize.height - 16
+        }
+
+        return IntOffset(x, y)
+    }
+}
+
+@Composable
+fun CustomQuickActionsMenu(
+    app: AppInfo,
+    isFav: Boolean,
+    onDismiss: () -> Unit,
+    onToggleFav: () -> Unit,
+    onAppInfo: () -> Unit,
+    onUninstall: () -> Unit
+) {
+    Popup(
+        popupPositionProvider = SmartMenuPositionProvider(),
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(clippingEnabled = false) // Removes default OS boundaries
+    ) {
+        Box(
+            modifier = Modifier
+                .width(220.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF231C3D).copy(alpha = 0.95f),
+                            Color(0xFF0F0C1E).copy(alpha = 0.85f)
+                        ),
+                        radius = 400f
+                    )
+                )
+                .padding(8.dp)
+        ) {
+            Column {
+                QuickActionItem(
+                    icon = Icons.Filled.Star,
+                    text = if (isFav) "Remove from dock" else "Add to dock",
+                    onClick = { onToggleFav(); onDismiss() }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.1f)))
+                Spacer(modifier = Modifier.height(4.dp))
+
+                QuickActionItem(
+                    icon = Icons.Filled.Info,
+                    text = "App info",
+                    onClick = { onAppInfo(); onDismiss() }
+                )
+
+                QuickActionItem(
+                    icon = Icons.Filled.Delete,
+                    text = "Uninstall",
+                    onClick = { onUninstall(); onDismiss() },
+                    isDestructive = true
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActionItem(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit,
+    isDestructive: Boolean = false
+) {
+    val contentColor = if (isDestructive) Color(0xFFFF4444) else Color.White
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = contentColor.copy(alpha = 0.8f),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            color = contentColor,
+            fontSize = 14.sp
+        )
     }
 }

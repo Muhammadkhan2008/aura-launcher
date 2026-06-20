@@ -12,10 +12,12 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -177,9 +179,10 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         isDefault = LauncherActions.isDefaultLauncher(context)
     }
 
-    val favorites = remember(apps, drawerOpen.value) {
-        val favPkgs = prefs.getFavorites()
-        favPkgs.mapNotNull { pkg -> apps.find { it.packageName == pkg } }
+    val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
+    val favorites = remember(apps, favPkgs) {
+        val appMap = apps.associateBy { it.packageName }
+        favPkgs.mapNotNull { pkg -> appMap[pkg] }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -289,8 +292,24 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         // ---- APP DRAWER ----
         AnimatedVisibility(
             visible = drawerOpen.value,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeIn(
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeOut(
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+            )
         ) {
             AppDrawer(
                 apps = apps,
@@ -298,6 +317,12 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 onAppClick = { AppRepository.launchApp(context, it) },
                 onClose = { drawerOpen.value = false }
             )
+        }
+
+        // ---- FLOATING SEARCH BUBBLE ----
+        // Show bubble only when drawer is closed to avoid overlay overlap
+        if (!drawerOpen.value) {
+            FloatingSearchBubble(drawerOpenState = drawerOpen)
         }
     }
 }
