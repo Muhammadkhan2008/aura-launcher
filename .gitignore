@@ -20,3 +20,4 @@ Thumbs.db
 # Keystore (kabhi git pe mat daalna!)
 *.jks
 *.keystore
+gradle-8.2/
