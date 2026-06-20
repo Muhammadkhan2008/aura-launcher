@@ -18,12 +18,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import android.view.SoundEffectConstants
 
 @Composable
 fun FloatingSearchBubble(
@@ -42,6 +46,9 @@ fun FloatingSearchBubble(
     var offsetX by remember { mutableFloatStateOf(screenWidthPx - bubbleSizePx - 32f) }
     var offsetY by remember { mutableFloatStateOf(screenHeightPx / 2f) }
 
+    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
+
     Box(
         modifier = modifier
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -55,6 +62,8 @@ fun FloatingSearchBubble(
             }
             .clip(CircleShape)
             .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                view.playSoundEffect(SoundEffectConstants.CLICK)
                 drawerOpenState.value = true
             }
             // Frosted glass premium aesthetic
