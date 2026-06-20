@@ -177,9 +177,10 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         isDefault = LauncherActions.isDefaultLauncher(context)
     }
 
-    val favorites = remember(apps, drawerOpen.value) {
-        val favPkgs = prefs.getFavorites()
-        favPkgs.mapNotNull { pkg -> apps.find { it.packageName == pkg } }
+    val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
+    val favorites = remember(apps, favPkgs) {
+        val appMap = apps.associateBy { it.packageName }
+        favPkgs.mapNotNull { pkg -> appMap[pkg] }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -298,6 +299,12 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 onAppClick = { AppRepository.launchApp(context, it) },
                 onClose = { drawerOpen.value = false }
             )
+        }
+
+        // ---- FLOATING SEARCH BUBBLE ----
+        // Show bubble only when drawer is closed to avoid overlay overlap
+        if (!drawerOpen.value) {
+            FloatingSearchBubble(drawerOpenState = drawerOpen)
         }
     }
 }
