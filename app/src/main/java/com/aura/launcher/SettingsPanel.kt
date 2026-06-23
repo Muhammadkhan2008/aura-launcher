@@ -35,10 +35,20 @@ fun SettingsPanel(
     var apiKey    by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
     var iconPack  by remember { mutableStateOf(prefs.iconPack) }
+    var showHiddenAppsManager by remember { mutableStateOf(false) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
-    val hasAdmin = remember { LockHelper.isAdminActive(context) }
+    val hasAdmin = remember { LockHelper.isDeviceAdminEnabled(context) }
+
+    // Show hidden apps manager if requested
+    if (showHiddenAppsManager) {
+        HiddenAppsDialog(
+            prefs = prefs,
+            apps = apps,
+            onDismiss = { showHiddenAppsManager = false }
+        )
+    }
 
     Dialog(onDismissRequest = onClose) {
         Surface(
@@ -117,7 +127,7 @@ fun SettingsPanel(
                     title = "Double-tap to lock",
                     status = if (hasAdmin) "Enabled ✓" else "Enable lock permission",
                     done = hasAdmin,
-                    onClick = { LockHelper.requestAdmin(context) }
+                    onClick = { LockHelper.requestDeviceAdmin(context) }
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -250,7 +260,27 @@ fun SettingsPanel(
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(Modifier.height(12.dp))
 
-                // ---- Backup / Restore section ----
+                // ---- Hidden Apps Manager ----
+                Text(
+                    "Hidden Apps",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Long-press kisi bhi app pe aur 'Hide app' select karo.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { showHiddenAppsManager = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Manage Hidden Apps") }
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     "Backup & Restore",
                     color = Color.White,
@@ -306,6 +336,85 @@ fun SettingsPanel(
         }
     }
 }
+
+/** Dialog to manage hidden apps */
+@Composable
+private fun HiddenAppsDialog(
+    prefs: AuraPrefs,
+    apps: List<AppInfo>,
+    onDismiss: () -> Unit
+) {
+    val hiddenApps = remember { prefs.getHiddenApps() }
+    var hiddenList by remember { mutableStateOf(hiddenApps.toList()) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = Color(0xFF1B1730)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Hidden Apps (${hiddenList.size})",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(12.dp))
+
+                if (hiddenList.isEmpty()) {
+                    Text(
+                        "Koi app hide nahi hai. Long-press se hide kar sakte ho.",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 13.sp
+                    )
+                } else {
+                    val appMap = apps.associateBy { it.packageName }
+                    hiddenList.forEach { pkg ->
+                        val app = appMap[pkg]
+                        if (app != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    app.label,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Button(
+                                    onClick = {
+                                        prefs.showApp(pkg)
+                                        hiddenList = hiddenList.filter { it != pkg }
+                                    },
+                                    modifier = Modifier.padding(start = 8.dp)
+                                ) {
+                                    Text("Show")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = onDismiss) {
+                        Text("Done")
+                    }
+                }
+            }
+        }
+    }
 
 @Composable
 private fun PowerRow(

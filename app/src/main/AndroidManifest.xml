@@ -35,6 +35,9 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- Device Admin: lock screen on double-tap -->
+    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher_full"

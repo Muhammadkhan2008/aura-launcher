@@ -2,6 +2,7 @@ package com.aura.launcher
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -73,7 +77,7 @@ fun AppIcon(
                 .padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
             Box {
-                coil.compose.AsyncImage(
+                AsyncImage(
                     model = app.icon,
                     contentDescription = app.label,
                     modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
@@ -104,12 +108,18 @@ fun AppIcon(
 
         if (menuOpen) {
             val isFav = prefs.isFavorite(app.packageName)
+            val isHidden = prefs.isHidden(app.packageName)
             CustomQuickActionsMenu(
                 app = app,
                 isFav = isFav,
+                isHidden = isHidden,
                 onDismiss = { menuOpen = false },
                 onToggleFav = {
                     if (isFav) prefs.removeFavorite(app.packageName) else prefs.addFavorite(app.packageName)
+                },
+                onToggleHide = {
+                    if (isHidden) prefs.showApp(app.packageName) else prefs.hideApp(app.packageName)
+                    menuOpen = false
                 },
                 onAppInfo = { AppRepository.openAppInfo(context, app.packageName) },
                 onUninstall = { AppRepository.uninstallApp(context, app.packageName) }
@@ -153,8 +163,10 @@ class SmartMenuPositionProvider : PopupPositionProvider {
 fun CustomQuickActionsMenu(
     app: AppInfo,
     isFav: Boolean,
+    isHidden: Boolean,
     onDismiss: () -> Unit,
     onToggleFav: () -> Unit,
+    onToggleHide: () -> Unit,
     onAppInfo: () -> Unit,
     onUninstall: () -> Unit
 ) {
@@ -184,6 +196,16 @@ fun CustomQuickActionsMenu(
                     icon = Icons.Filled.Star,
                     text = if (isFav) "Remove from dock" else "Add to dock",
                     onClick = { onToggleFav(); onDismiss() }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.1f)))
+                Spacer(modifier = Modifier.height(4.dp))
+
+                QuickActionItem(
+                    icon = if (isHidden) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                    text = if (isHidden) "Show app" else "Hide app",
+                    onClick = { onToggleHide() }
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))

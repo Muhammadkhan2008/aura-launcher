@@ -20,13 +20,14 @@ object LockHelper {
     private fun adminComponent(context: Context) =
         ComponentName(context, AuraAdminReceiver::class.java)
 
-    fun isAdminActive(context: Context): Boolean {
+    /** Check: device admin enabled hai? */
+    fun isDeviceAdminEnabled(context: Context): Boolean {
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         return dpm.isAdminActive(adminComponent(context))
     }
 
     /** Admin enable karne ka system prompt kholo. */
-    fun requestAdmin(context: Context) {
+    fun requestDeviceAdmin(context: Context) {
         val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
             putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent(context))
             putExtra(
@@ -41,10 +42,19 @@ object LockHelper {
     /** Screen lock karo (admin active hona chahiye). */
     fun lockScreen(context: Context) {
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        if (isAdminActive(context)) {
-            dpm.lockNow()
+        if (isDeviceAdminEnabled(context)) {
+            try {
+                dpm.lockNow()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Screen lock fail ❌",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
         } else {
-            requestAdmin(context)
+            // Admin not enabled, request it
+            requestDeviceAdmin(context)
         }
     }
 }

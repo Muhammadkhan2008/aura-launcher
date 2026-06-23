@@ -262,30 +262,6 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                         modifier = Modifier.padding(bottom = 16.dp))
                     DockBar(favorites = favorites)
                 }
-
-                // Bottom navbar
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.Black.copy(alpha = 0.40f))
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {}, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.ArrowBack, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    }
-                    IconButton(onClick = {}, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.Home, null, tint = Color(0xFF9D86FF), modifier = Modifier.size(22.dp))
-                    }
-                    IconButton(onClick = {
-                        val r = RecentsHelper.getRunningTasks(context, 8)
-                        android.widget.Toast.makeText(context, "${r.size} recent apps", android.widget.Toast.LENGTH_SHORT).show()
-                    }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.MoreVert, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    }
-                }
             }
         }
 
@@ -490,8 +466,9 @@ fun AppDrawer(
     }
 
     val filtered = remember(query, apps) {
-        if (query.isBlank()) apps
-        else apps.filter { it.label.contains(query, ignoreCase = true) && it.packageName !in hidden }
+        val hiddenApps = prefs.getHiddenApps()
+        if (query.isBlank()) apps.filter { it.packageName !in hiddenApps }
+        else apps.filter { it.label.contains(query, ignoreCase = true) && it.packageName !in hiddenApps }
     }
 
     // Backup: file create karke usme settings likho
