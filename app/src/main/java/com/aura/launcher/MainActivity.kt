@@ -64,10 +64,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // IMMERSIVE MODE: sirf Aura ki screen pe nav bar + status bar
-        // chhupte hain (Nova/launcher jaisa "takeover" feel). Ye system-wide
-        // NAHI hai — kisi aur app mein nav bar normal rahega.
-        enableImmersiveMode()
+        // EDGE-TO-EDGE: Status bar aur navigation bar transparent banayein
+        setupEdgeToEdge()
 
         // Mic permission ek baar maang lo (voice search ke liye, optional)
         requestMicPermissionIfNeeded()
@@ -81,15 +79,28 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AuraTheme {
-                AuraHomeScreen(drawerOpenState)
+                val context = LocalContext.current
+                val prefs = remember { AuraPrefs(context) }
+                var onboarded by remember { mutableStateOf(prefs.isOnboarded) }
+
+                if (!onboarded) {
+                    OnboardingScreen(
+                        prefs = prefs,
+                        onComplete = {
+                            onboarded = true
+                        }
+                    )
+                } else {
+                    AuraHomeScreen(drawerOpenState)
+                }
             }
         }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        // Jab user wapas Aura pe aaye to immersive dobara lagao
-        if (hasFocus) enableImmersiveMode()
+        // Ensure transparent edge-to-edge settings are applied
+        if (hasFocus) setupEdgeToEdge()
     }
 
     override fun onResume() {
@@ -136,20 +147,18 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Immersive mode — content ko edge-to-edge banata hai aur system bars
-     * (status + navigation) ko swipe-to-reveal mode mein chhupata hai.
-     * Sirf is activity (Aura home) pe asar — system-wide nahi.
+     * Edge-to-edge layout with transparent status and navigation bars.
+     * Keeps them fully visible and usable but allows launcher content to draw underneath.
      */
-    private fun enableImmersiveMode() {
+    private fun setupEdgeToEdge() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        // Status/nav bar transparent rahein
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
         }
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
     }
 }
 
@@ -164,19 +173,32 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     var isDefault by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        apps = AppRepository.getInstalledApps(context)
-        VoiceSearch.setApps(apps)
-        isDefault = LauncherActions.isDefaultLauncher(context)
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val fetchedApps = AppRepository.getInstalledApps(context)
+            VoiceSearch.setApps(fetchedApps)
+            val defaultVal = LauncherActions.isDefaultLauncher(context)
+            apps = fetchedApps
+            isDefault = defaultVal
+        }
     }
 
     LaunchedEffect(apps, drawerOpen.value) {
         if (apps.isNotEmpty()) {
-            recents = RecentApps.getRecentApps(context, apps)
-            if (prefs.smartPredictionEnabled) {
-                predicted = AppUsageTracker.getPredictedApps(context, apps, 4)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val fetchedRecents = RecentApps.getRecentApps(context, apps)
+                val fetchedPredicted = if (prefs.smartPredictionEnabled) {
+                    AppUsageTracker.getPredictedApps(context, apps, 4)
+                } else emptyList()
+                val defaultVal = LauncherActions.isDefaultLauncher(context)
+                recents = fetchedRecents
+                predicted = fetchedPredicted
+                isDefault = defaultVal
+            }
+        } else {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                isDefault = LauncherActions.isDefaultLauncher(context)
             }
         }
-        isDefault = LauncherActions.isDefaultLauncher(context)
     }
 
     val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }

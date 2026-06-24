@@ -102,6 +102,10 @@ class AuraPrefs(context: Context) {
         get() = prefs.getString(KEY_DOUBLE_TAP, "LOCK_SCREEN") ?: "LOCK_SCREEN"
         set(v) = prefs.edit().putString(KEY_DOUBLE_TAP, v).apply()
 
+    var isOnboarded: Boolean
+        get() = prefs.getBoolean("is_onboarded", false)
+        set(value) = prefs.edit().putBoolean("is_onboarded", value).apply()
+
     companion object {
         private const val KEY_COLUMNS       = "grid_columns"
         private const val KEY_FAVORITES     = "favorites"

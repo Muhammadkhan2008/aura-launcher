@@ -24,7 +24,7 @@ fun WeatherWidget(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        scope.launch {
+        while (true) {
             weather = WeatherHelper.getWeather(context)
             loading = false
             // Har 30 min refresh karo

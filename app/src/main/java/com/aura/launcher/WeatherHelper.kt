@@ -5,6 +5,7 @@ import android.content.Context
 import android.location.LocationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -33,18 +34,59 @@ object WeatherHelper {
 
     /** Phone ki last-known location (lat, lon). Null = nahi mili. */
     @SuppressLint("MissingPermission")
-    private fun getLocation(context: Context): Pair<Double, Double>? {
-        if (!hasLocationPermission(context)) return null
-        return runCatching {
-            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private suspend fun getLocation(context: Context): Pair<Double, Double>? = withContext(Dispatchers.Main) {
+        if (!hasLocationPermission(context)) return@withContext null
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return@withContext null
+        
+        // 1. Fast path: last known location
+        val lastLoc = runCatching {
             val providers = lm.getProviders(true)
             var best: android.location.Location? = null
             for (p in providers) {
                 val loc = lm.getLastKnownLocation(p) ?: continue
-                if (best == null || loc.accuracy < best!!.accuracy) best = loc
+                if (best == null || loc.accuracy < best.accuracy) best = loc
             }
             best?.let { it.latitude to it.longitude }
         }.getOrNull()
+        
+        if (lastLoc != null) return@withContext lastLoc
+        
+        // 2. Slow path: Request single location update
+        kotlinx.coroutines.suspendCancellableCoroutine<Pair<Double, Double>?> { continuation ->
+            val provider = when {
+                lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
+                lm.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
+                else -> null
+            }
+            if (provider == null) {
+                continuation.resume(null)
+                return@suspendCancellableCoroutine
+            }
+            
+            val listener = object : android.location.LocationListener {
+                override fun onLocationChanged(location: android.location.Location) {
+                    lm.removeUpdates(this)
+                    if (continuation.isActive) {
+                        continuation.resume(location.latitude to location.longitude)
+                    }
+                }
+                override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }
+            
+            try {
+                lm.requestLocationUpdates(provider, 0L, 0f, listener, android.os.Looper.getMainLooper())
+            } catch (e: Exception) {
+                if (continuation.isActive) {
+                    continuation.resume(null)
+                }
+            }
+            
+            continuation.invokeOnCancellation {
+                runCatching { lm.removeUpdates(listener) }
+            }
+        }
     }
 
     /**

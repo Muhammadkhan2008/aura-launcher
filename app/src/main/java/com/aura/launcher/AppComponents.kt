@@ -38,7 +38,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
-import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import android.graphics.drawable.Drawable
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.painter.Painter
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -77,8 +83,8 @@ fun AppIcon(
                 .padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
             Box {
-                AsyncImage(
-                    model = app.icon,
+                Image(
+                    painter = rememberDrawablePainter(app.icon),
                     contentDescription = app.label,
                     modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
                 )
@@ -259,4 +265,25 @@ fun QuickActionItem(
             fontSize = 14.sp
         )
     }
+}
+
+class DrawablePainter(private val drawable: Drawable) : Painter() {
+    override val intrinsicSize: Size
+        get() = if (drawable.intrinsicWidth >= 0 && drawable.intrinsicHeight >= 0) {
+            Size(drawable.intrinsicWidth.toFloat(), drawable.intrinsicHeight.toFloat())
+        } else {
+            Size.Unspecified
+        }
+
+    override fun DrawScope.onDraw() {
+        drawIntoCanvas { canvas ->
+            drawable.setBounds(0, 0, size.width.toInt(), size.height.toInt())
+            drawable.draw(canvas.nativeCanvas)
+        }
+    }
+}
+
+@Composable
+fun rememberDrawablePainter(drawable: Drawable): Painter {
+    return remember(drawable) { DrawablePainter(drawable) }
 }
