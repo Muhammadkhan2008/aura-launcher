@@ -415,6 +415,7 @@ private fun HiddenAppsDialog(
             }
         }
     }
+}
 
 @Composable
 private fun PowerRow(
