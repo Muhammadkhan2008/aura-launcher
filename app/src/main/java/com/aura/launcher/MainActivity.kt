@@ -577,19 +577,34 @@ fun AppDrawer(
                     aiAnswer = null
                     if (it.isNotBlank()) SearchHistory.addQuery(context, it)
                 },
-                onAskAi = {
-                    if (query.isNotBlank()) {
+                onAskAi = { targetQuery ->
+                    val q = if (targetQuery.isNotBlank()) targetQuery else query
+                    if (q.isNotBlank()) {
                         val key = prefs.groqApiKey
                         aiLoading = true
                         aiAnswer = null
                         scope.launch {
-                            val res = GroqClient.ask(key, query)
+                            val res = GroqClient.ask(key, q, apps)
                             aiLoading = false
-                            aiAnswer = when (res) {
-                                is GroqClient.Result.Success -> res.text
-                                is GroqClient.Result.Error -> "⚠️ ${res.message}"
-                                is GroqClient.Result.NoKey ->
-                                    "AI key nahi mili. Settings → AI Assistant mein apni free Groq key daalo."
+                            when (res) {
+                                is GroqClient.Result.Success -> {
+                                    val json = runCatching { org.json.JSONObject(res.text) }.getOrNull()
+                                    if (json != null) {
+                                        val action = json.optString("action", "SAY")
+                                        val param = json.optString("param", "")
+                                        val reply = json.optString("reply", "")
+                                        aiAnswer = reply
+                                        executeAgenticAction(context, action, param, onClose, prefs, apps)
+                                    } else {
+                                        aiAnswer = res.text
+                                    }
+                                }
+                                is GroqClient.Result.Error -> {
+                                    aiAnswer = "⚠️ ${res.message}"
+                                }
+                                is GroqClient.Result.NoKey -> {
+                                    aiAnswer = "AI key nahi mili. Settings → AI Assistant mein apni free Groq key daalo."
+                                }
                             }
                         }
                     }
@@ -646,7 +661,7 @@ fun AppDrawer(
 fun GlassSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onAskAi: () -> Unit
+    onAskAi: (String) -> Unit
 ) {
     val context = LocalContext.current
     var showHistory by remember { mutableStateOf(false) }
@@ -675,7 +690,10 @@ fun GlassSearchBar(
                     IconButton(onClick = {
                         VoiceSearch.startListening(context) { spoken ->
                             onQueryChange(spoken)
-                            VoiceSearch.tryOpenApp(context, spoken)
+                            val opened = VoiceSearch.tryOpenApp(context, spoken)
+                            if (!opened && hasAiKey) {
+                                onAskAi(spoken)
+                            }
                         }
                     }) {
                         Icon(Icons.Filled.Mic, "Voice search", tint = Color(0xFF9D86FF))
@@ -728,7 +746,7 @@ fun GlassSearchBar(
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = {
-                if (hasAiKey) onAskAi()
+                if (hasAiKey) onAskAi(query)
             },
             enabled = hasAiKey,
             shape = RoundedCornerShape(18.dp),
@@ -846,6 +864,53 @@ fun FileRow(file: FileResult, onClick: () -> Unit) {
 /** Chhota toast helper. */
 private fun toast(context: android.content.Context, msg: String) {
     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * Agentic actions executed on the Main thread.
+ */
+private fun executeAgenticAction(
+    context: android.content.Context,
+    action: String,
+    param: String,
+    onClose: () -> Unit,
+    prefs: AuraPrefs,
+    apps: List<AppInfo>
+) {
+    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    mainHandler.post {
+        runCatching {
+            when (action) {
+                "LAUNCH_APP" -> {
+                    if (param.isNotBlank()) {
+                        AppRepository.launchByPackage(context, param, apps)
+                        onClose()
+                    }
+                }
+                "OPEN_SETTINGS" -> {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+                "OPEN_NOTIFICATIONS" -> {
+                    LauncherActions.openNotifications(context)
+                }
+                "CLOSE_DRAWER" -> {
+                    onClose()
+                }
+                "SET_GRID" -> {
+                    val cols = param.toIntOrNull()
+                    if (cols != null && cols in 3..6) {
+                        prefs.gridColumns = cols
+                    }
+                }
+                "LOCK_SCREEN" -> {
+                    LockHelper.lockScreen(context)
+                }
+            }
+        }
+    }
 }
 
 

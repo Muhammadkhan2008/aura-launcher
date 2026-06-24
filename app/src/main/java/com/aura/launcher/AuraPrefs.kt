@@ -106,6 +106,22 @@ class AuraPrefs(context: Context) {
         get() = prefs.getBoolean("is_onboarded", false)
         set(value) = prefs.edit().putBoolean("is_onboarded", value).apply()
 
+    var lastWeatherTemp: Int
+        get() = prefs.getInt("last_weather_temp", 999)
+        set(v) = prefs.edit().putInt("last_weather_temp", v).apply()
+
+    var lastWeatherCode: Int
+        get() = prefs.getInt("last_weather_code", -1)
+        set(v) = prefs.edit().putInt("last_weather_code", v).apply()
+
+    var lastWeatherDesc: String
+        get() = prefs.getString("last_weather_desc", "") ?: ""
+        set(v) = prefs.edit().putString("last_weather_desc", v).apply()
+
+    var lastWeatherEmoji: String
+        get() = prefs.getString("last_weather_emoji", "") ?: ""
+        set(v) = prefs.edit().putString("last_weather_emoji", v).apply()
+
     companion object {
         private const val KEY_COLUMNS       = "grid_columns"
         private const val KEY_FAVORITES     = "favorites"

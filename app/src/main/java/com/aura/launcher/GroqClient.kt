@@ -37,7 +37,11 @@ object GroqClient {
     /**
      * AI se ek sawaal pucho. Background thread pe chalta hai (UI hang nahi).
      */
-    suspend fun ask(apiKey: String, prompt: String): Result = withContext(Dispatchers.IO) {
+    suspend fun ask(
+        apiKey: String,
+        prompt: String,
+        installedApps: List<AppInfo> = emptyList()
+    ): Result = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) return@withContext Result.NoKey
 
         try {
@@ -51,19 +55,42 @@ object GroqClient {
                 setRequestProperty("Authorization", "Bearer $apiKey")
             }
 
-            // Request body banao
+            val appsListStr = installedApps.joinToString("\n") { "- ${it.label}: ${it.packageName}" }
+            
+            val systemInstructions = """
+                You are Aura, a smart agentic AI assistant inside the Aura Android launcher.
+                You can perform actions on the device by returning a structured JSON response.
+                
+                You MUST return a valid JSON object matching this structure (and nothing else, no markdown wrapper, no backticks, just the raw JSON):
+                {
+                  "action": "LAUNCH_APP" | "OPEN_SETTINGS" | "OPEN_NOTIFICATIONS" | "CLOSE_DRAWER" | "SET_GRID" | "LOCK_SCREEN" | "SAY",
+                  "param": "string parameter value (e.g. package name, grid column count, or empty)",
+                  "reply": "User-facing spoken response explaining your action in the user's language"
+                }
+                
+                Actions guide:
+                - To open an app, use "action": "LAUNCH_APP" and set "param" to the exact package name from the app list below.
+                - To open launcher settings / device settings, use "action": "OPEN_SETTINGS".
+                - To expand notification panel / status bar, use "action": "OPEN_NOTIFICATIONS".
+                - To close the app drawer and go back to home screen, use "action": "CLOSE_DRAWER".
+                - To change app grid column count (3 to 6), use "action": "SET_GRID" and set "param" to the column digit (e.g. "5").
+                - To lock the screen / turn off screen, use "action": "LOCK_SCREEN".
+                - For other normal questions or queries, use "action": "SAY" and set "reply" to your answer.
+                
+                Here is the list of installed apps on the device:
+                ${if (appsListStr.isBlank()) "(No apps loaded)" else appsListStr}
+            """.trimIndent()
+
+            // Request body with response_format: json_object
             val body = JSONObject().apply {
                 put("model", MODEL)
-                put("temperature", 0.6)
+                put("temperature", 0.2) // Low temperature for higher structure compliance
                 put("max_tokens", 512)
+                put("response_format", JSONObject().apply { put("type", "json_object") })
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "system")
-                        put(
-                            "content",
-                            "You are Aura, a helpful assistant inside an Android launcher. " +
-                                "Answer concisely and clearly. Reply in the user's language."
-                        )
+                        put("content", systemInstructions)
                     })
                     put(JSONObject().apply {
                         put("role", "user")

@@ -94,7 +94,10 @@ object WeatherHelper {
      * @return Weather ya null (permission/location/network fail).
      */
     suspend fun getWeather(context: Context): Weather? = withContext(Dispatchers.IO) {
-        val loc = getLocation(context) ?: return@withContext null
+        val loc = kotlinx.coroutines.withTimeoutOrNull(8000L) {
+            getLocation(context)
+        } ?: return@withContext getCachedWeather(context)
+
         val (lat, lon) = loc
 
         runCatching {
@@ -107,14 +110,38 @@ object WeatherHelper {
                 readTimeout = 15000
             }
             val code = conn.responseCode
-            if (code !in 200..299) return@withContext null
+            if (code !in 200..299) return@withContext getCachedWeather(context)
 
             val resp = conn.inputStream.bufferedReader().use { it.readText() }
             val cw = JSONObject(resp).getJSONObject("current_weather")
             val temp = cw.getDouble("temperature").toInt()
             val wcode = cw.getInt("weathercode")
-            Weather(temp, wcode, codeToDesc(wcode), codeToEmoji(wcode))
-        }.getOrNull()
+            val w = Weather(temp, wcode, codeToDesc(wcode), codeToEmoji(wcode))
+            
+            // Save to cache
+            saveWeatherToCache(context, w)
+            w
+        }.getOrElse { getCachedWeather(context) }
+    }
+
+    private fun getCachedWeather(context: Context): Weather? {
+        val prefs = AuraPrefs(context)
+        val temp = prefs.lastWeatherTemp
+        if (temp == 999) return null
+        return Weather(
+            tempC = temp,
+            code = prefs.lastWeatherCode,
+            description = prefs.lastWeatherDesc,
+            emoji = prefs.lastWeatherEmoji
+        )
+    }
+
+    private fun saveWeatherToCache(context: Context, w: Weather) {
+        val prefs = AuraPrefs(context)
+        prefs.lastWeatherTemp = w.tempC
+        prefs.lastWeatherCode = w.code
+        prefs.lastWeatherDesc = w.description
+        prefs.lastWeatherEmoji = w.emoji
     }
 
     // WMO weather codes -> text/emoji (Open-Meteo standard)
