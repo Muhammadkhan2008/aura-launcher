@@ -1,0 +1,12 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Gradle wrapper (must be treated as binary)
+gradle/wrapper/gradle-wrapper.jar binary
+
+# Shell scripts should keep LF line endings
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Windows batch files should keep CRLF
+*.bat text eol=crlf
