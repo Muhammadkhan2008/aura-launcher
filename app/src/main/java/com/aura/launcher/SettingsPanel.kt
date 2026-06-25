@@ -34,6 +34,7 @@ fun SettingsPanel(
     var columns   by remember { mutableStateOf(prefs.gridColumns) }
     var apiKey    by remember { mutableStateOf(prefs.groqApiKey) }
     var predictOn by remember { mutableStateOf(prefs.smartPredictionEnabled) }
+    var useSysWp  by remember { mutableStateOf(prefs.useSystemWallpaper) }
     var iconPack  by remember { mutableStateOf(prefs.iconPack) }
     var showHiddenAppsManager by remember { mutableStateOf(false) }
 
@@ -177,6 +178,23 @@ fun SettingsPanel(
                         )
                     }
                     Switch(checked = predictOn, onCheckedChange = { predictOn = it })
+                }
+
+                Spacer(Modifier.height(12.dp))
+                // Wallpaper transparency toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Show System Wallpaper", color = Color.White, fontSize = 14.sp)
+                        Text(
+                            "Let system wallpaper show behind launcher",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Switch(checked = useSysWp, onCheckedChange = { useSysWp = it })
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -326,6 +344,7 @@ fun SettingsPanel(
                         prefs.groqApiKey = apiKey
                         prefs.smartPredictionEnabled = predictOn
                         prefs.iconPack = iconPack
+                        prefs.useSystemWallpaper = useSysWp
                         onChanged()
                         onClose()
                     }) {

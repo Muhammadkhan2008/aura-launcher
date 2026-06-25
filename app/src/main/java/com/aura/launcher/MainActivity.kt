@@ -201,6 +201,11 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         }
     }
 
+    var quickMenuOpen by remember { mutableStateOf(false) }
+    var gridColumnsState by remember { mutableStateOf(prefs.gridColumns) }
+    var useSystemWallpaperState by remember { mutableStateOf(prefs.useSystemWallpaper) }
+    var openSettingsOnDrawerOpen by remember { mutableStateOf(false) }
+
     val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
     val favorites = remember(apps, favPkgs) {
         val appMap = apps.associateBy { it.packageName }
@@ -214,13 +219,23 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color(0xFF0F0C1E),
-                            Color(0xFF1B1730).copy(alpha = 0.9f),
-                            Color(0xFF0F0C1E)
+                    if (useSystemWallpaperState) {
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0.35f),
+                                Color.Black.copy(alpha = 0.20f),
+                                Color.Black.copy(alpha = 0.35f)
+                            )
                         )
-                    )
+                    } else {
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF0F0C1E),
+                                Color(0xFF1B1730).copy(alpha = 0.9f),
+                                Color(0xFF0F0C1E)
+                            )
+                        )
+                    }
                 )
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, dragAmount ->
@@ -240,13 +255,18 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     }
                 }
                 .pointerInput(Unit) {
-                    detectTapGestures(onDoubleTap = {
-                        when (prefs.doubleTapAction) {
-                            "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
-                            "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
-                            "OPEN_DRAWER"   -> drawerOpen.value = true
+                    detectTapGestures(
+                        onDoubleTap = {
+                            when (prefs.doubleTapAction) {
+                                "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                                "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                                "OPEN_DRAWER"   -> drawerOpen.value = true
+                            }
+                        },
+                        onLongPress = {
+                            quickMenuOpen = true
                         }
-                    })
+                    )
                 }
         ) {
             Column(
@@ -311,9 +331,15 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         ) {
             AppDrawer(
                 apps = apps,
-                columns = prefs.gridColumns,
+                columns = gridColumnsState,
                 onAppClick = { AppRepository.launchApp(context, it) },
-                onClose = { drawerOpen.value = false }
+                onClose = { drawerOpen.value = false },
+                initialSettingsOpen = openSettingsOnDrawerOpen,
+                onSettingsOpenHandled = { openSettingsOnDrawerOpen = false },
+                onSettingsChanged = {
+                    gridColumnsState = prefs.gridColumns
+                    useSystemWallpaperState = prefs.useSystemWallpaper
+                }
             )
         }
 
@@ -321,6 +347,116 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
         // Show bubble only when drawer is closed to avoid overlay overlap
         if (!drawerOpen.value) {
             FloatingSearchBubble(drawerOpenState = drawerOpen)
+        }
+
+        // ---- QUICK HOME SETTINGS DIALOG ----
+        if (quickMenuOpen) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { quickMenuOpen = false }
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xF21B1730), // Sleek glassmorphism look
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(20.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Quick Customization",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        // AI Premium Wallpapers Selector
+                        WallpaperSelector(onApplied = {
+                            // Sync background transparency state in case they set a wallpaper
+                            useSystemWallpaperState = true
+                            prefs.useSystemWallpaper = true
+                        })
+
+                        Spacer(Modifier.height(16.dp))
+                        Divider(color = Color.White.copy(alpha = 0.1f))
+                        Spacer(Modifier.height(16.dp))
+
+                        // Grid column settings row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    "App Grid Columns",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Drawer Columns: $gridColumnsState",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                for (cols in 3..6) {
+                                    val isSelected = gridColumnsState == cols
+                                    Button(
+                                        onClick = {
+                                            prefs.gridColumns = cols
+                                            gridColumnsState = cols
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isSelected) Color(0xFF6C4DF6) else Color.White.copy(alpha = 0.08f)
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 10.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Text(cols.toString(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                        Divider(color = Color.White.copy(alpha = 0.1f))
+                        Spacer(Modifier.height(16.dp))
+
+                        // Footer Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    quickMenuOpen = false
+                                    openSettingsOnDrawerOpen = true
+                                    drawerOpen.value = true
+                                }
+                            ) {
+                                Text("All Settings  ⚙️", color = Color(0xFF9D86FF), fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = { quickMenuOpen = false },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6))
+                            ) {
+                                Text("Done", color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -462,7 +598,10 @@ fun AppDrawer(
     apps: List<AppInfo>,
     columns: Int,
     onAppClick: (AppInfo) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    initialSettingsOpen: Boolean = false,
+    onSettingsOpenHandled: () -> Unit = {},
+    onSettingsChanged: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
@@ -470,6 +609,13 @@ fun AppDrawer(
 
     var query by remember { mutableStateOf("") }
     var settingsOpen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialSettingsOpen) {
+        if (initialSettingsOpen) {
+            settingsOpen = true
+            onSettingsOpenHandled()
+        }
+    }
     var cols by remember { mutableStateOf(columns) }
     var showCategories by remember { mutableStateOf(prefs.showCategoryView) }
 
@@ -518,7 +664,10 @@ fun AppDrawer(
             prefs = prefs,
             apps = apps,
             onClose = { settingsOpen = false },
-            onChanged = { cols = prefs.gridColumns },
+            onChanged = {
+                cols = prefs.gridColumns
+                onSettingsChanged()
+            },
             onBackup = { backupLauncher.launch("aura_backup.json") },
             onRestore = { restoreLauncher.launch(arrayOf("application/json")) }
         )

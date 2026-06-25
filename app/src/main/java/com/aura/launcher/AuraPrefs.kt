@@ -106,6 +106,10 @@ class AuraPrefs(context: Context) {
         get() = prefs.getBoolean("is_onboarded", false)
         set(value) = prefs.edit().putBoolean("is_onboarded", value).apply()
 
+    var useSystemWallpaper: Boolean
+        get() = prefs.getBoolean(KEY_SYSTEM_WALLPAPER, true)
+        set(value) = prefs.edit().putBoolean(KEY_SYSTEM_WALLPAPER, value).apply()
+
     var lastWeatherTemp: Int
         get() = prefs.getInt("last_weather_temp", 999)
         set(v) = prefs.edit().putInt("last_weather_temp", v).apply()
@@ -133,5 +137,6 @@ class AuraPrefs(context: Context) {
         private const val KEY_SWIPE_DOWN    = "gesture_swipe_down"
         private const val KEY_SWIPE_UP      = "gesture_swipe_up"
         private const val KEY_DOUBLE_TAP    = "gesture_double_tap"
+        private const val KEY_SYSTEM_WALLPAPER = "use_system_wallpaper"
     }
 }

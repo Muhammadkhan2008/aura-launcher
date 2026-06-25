@@ -40,6 +40,25 @@ object WallpaperHelper {
         AuraWallpaper("cosmic", "Cosmic", listOf(0xFF8E2DE2.toInt(), 0xFF4A00E0.toInt()))
     )
 
+    data class AssetWallpaper(
+        val id: String,
+        val name: String,
+        val assetPath: String
+    )
+
+    val ASSET_WALLPAPERS: List<AssetWallpaper> = listOf(
+        AssetWallpaper("wp_cyberpunk", "Cyberpunk Neon", "wallpapers/wp_cyberpunk.png"),
+        AssetWallpaper("wp_abstract_gradient", "Glassmorphic Fluid", "wallpapers/wp_abstract_gradient.png"),
+        AssetWallpaper("wp_minimalist_dune", "Midnight Dunes", "wallpapers/wp_minimalist_dune.png"),
+        AssetWallpaper("wp_space_nebula", "Cosmic Nebula", "wallpapers/wp_space_nebula.png"),
+        AssetWallpaper("wp_geometric_glass", "Geometric Crystals", "wallpapers/wp_geometric_glass.png"),
+        AssetWallpaper("wp_nature_mist", "Misty Pines", "wallpapers/wp_nature_mist.png"),
+        AssetWallpaper("wp_waves_ocean", "Bioluminescent Waves", "wallpapers/wp_waves_ocean.png"),
+        AssetWallpaper("wp_cyber_mesh", "Cyber Mesh", "wallpapers/wp_cyber_mesh.png"),
+        AssetWallpaper("wp_retro_sun", "80s Synthwave", "wallpapers/wp_retro_sun.png"),
+        AssetWallpaper("wp_aurora", "Aurora Peaks", "wallpapers/wp_aurora.png")
+    )
+
     fun byId(id: String): AuraWallpaper? = WALLPAPERS.firstOrNull { it.id == id }
 
     /**
@@ -75,6 +94,18 @@ object WallpaperHelper {
             val bmp = renderBitmap(context, wp)
             val wm = WallpaperManager.getInstance(context)
             wm.setBitmap(bmp)
+            true
+        }.getOrDefault(false)
+    }
+
+    /**
+     * Assets se wallpaper copy karke system pe set karo.
+     */
+    fun setAssetWallpaper(context: Context, wp: AssetWallpaper): Boolean {
+        return runCatching {
+            val wm = WallpaperManager.getInstance(context)
+            val stream = context.assets.open(wp.assetPath)
+            wm.setStream(stream)
             true
         }.getOrDefault(false)
     }
