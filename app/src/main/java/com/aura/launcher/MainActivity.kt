@@ -49,6 +49,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 
 /**
@@ -107,6 +112,18 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Badge refresh hone de jab notification change hो
         window.decorView.invalidate()
+
+        // Role propagation delay safety check
+        val context = this
+        val prefs = AuraPrefs(context)
+        val currentlyDefault = LauncherActions.isDefaultLauncher(context)
+        val wasDefault = prefs.wasDefaultLauncher
+        if (currentlyDefault && !wasDefault) {
+            prefs.wasDefaultLauncher = true
+            LauncherActions.restartAppSafely(context)
+        } else if (!currentlyDefault) {
+            prefs.wasDefaultLauncher = false
+        }
     }
 
     /** Mic + storage + location permission maango. */
@@ -172,13 +189,36 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     var predicted by remember { mutableStateOf(emptyList<AppInfo>()) }
     var isDefault by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    LaunchedEffect(refreshTrigger) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             val fetchedApps = AppRepository.getInstalledApps(context)
             VoiceSearch.setApps(fetchedApps)
             val defaultVal = LauncherActions.isDefaultLauncher(context)
             apps = fetchedApps
             isDefault = defaultVal
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(ctx: android.content.Context?, intent: android.content.Intent?) {
+                val action = intent?.action
+                val isReplacing = intent?.getBooleanExtra(android.content.Intent.EXTRA_REPLACING, false) ?: false
+                if (!isReplacing && (action == android.content.Intent.ACTION_PACKAGE_ADDED || action == android.content.Intent.ACTION_PACKAGE_REMOVED)) {
+                    refreshTrigger++
+                }
+            }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(android.content.Intent.ACTION_PACKAGE_ADDED)
+            addAction(android.content.Intent.ACTION_PACKAGE_REMOVED)
+            addDataScheme("package")
+        }
+        context.registerReceiver(receiver, filter)
+        onDispose {
+            context.unregisterReceiver(receiver)
         }
     }
 
@@ -609,6 +649,8 @@ fun AppDrawer(
 
     var query by remember { mutableStateOf("") }
     var settingsOpen by remember { mutableStateOf(false) }
+    var freezerOpen by remember { mutableStateOf(false) }
+    var frozenAppsState by remember { mutableStateOf(prefs.getFrozenApps()) }
 
     LaunchedEffect(initialSettingsOpen) {
         if (initialSettingsOpen) {
@@ -633,10 +675,26 @@ fun AppDrawer(
         } else emptyList()
     }
 
-    val filtered = remember(query, apps) {
+    val filtered = remember(query, apps, frozenAppsState) {
         val hiddenApps = prefs.getHiddenApps()
-        if (query.isBlank()) apps.filter { it.packageName !in hiddenApps }
-        else apps.filter { it.label.contains(query, ignoreCase = true) && it.packageName !in hiddenApps }
+        val list = if (query.isBlank()) {
+            apps.filter { it.packageName !in hiddenApps && it.packageName !in frozenAppsState }.toMutableList()
+        } else {
+            apps.filter { it.label.contains(query, ignoreCase = true) && it.packageName !in hiddenApps && it.packageName !in frozenAppsState }.toMutableList()
+        }
+        if (query.isBlank() || "Freezer".contains(query, ignoreCase = true)) {
+            val dummyDrawable = object : android.graphics.drawable.ColorDrawable(0) {}
+            list.add(
+                0,
+                AppInfo(
+                    label = "Freezer",
+                    packageName = "com.aura.launcher.freezer",
+                    activityName = "com.aura.launcher.FreezerActivity",
+                    icon = dummyDrawable
+                )
+            )
+        }
+        list
     }
 
     // Backup: file create karke usme settings likho
@@ -780,7 +838,13 @@ fun AppDrawer(
                     items(filtered, key = { it.packageName }) { app ->
                         AppIcon(
                             app = app,
-                            onClick = { onAppClick(app) }
+                            onClick = {
+                                if (app.packageName == "com.aura.launcher.freezer") {
+                                    freezerOpen = true
+                                } else {
+                                    onAppClick(app)
+                                }
+                            }
                         )
                     }
                     // Universal search: files bhi dikhao (jab query ho)
@@ -801,6 +865,17 @@ fun AppDrawer(
                 }
             }
         }
+    }
+
+    if (freezerOpen) {
+        FreezerDialog(
+            prefs = prefs,
+            apps = apps,
+            onDismiss = { freezerOpen = false },
+            onRefresh = {
+                frozenAppsState = prefs.getFrozenApps()
+            }
+        )
     }
 }
 
@@ -1007,6 +1082,174 @@ fun FileRow(file: FileResult, onClick: () -> Unit) {
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
+    }
+}
+
+/** Freezer Dialog for managing background frozen apps */
+@Composable
+fun FreezerDialog(
+    prefs: AuraPrefs,
+    apps: List<AppInfo>,
+    onDismiss: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    val context = LocalContext.current
+    val frozenPkgs = remember { prefs.getFrozenApps() }
+    var frozenList by remember { mutableStateOf(frozenPkgs.toList()) }
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    val appMap = remember(apps) { apps.associateBy { it.packageName } }
+
+    if (showAddDialog) {
+        Dialog(onDismissRequest = { showAddDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF1B1730),
+                modifier = Modifier.fillMaxHeight(0.8f).padding(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Select Apps to Freeze", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(8.dp))
+                    
+                    val nonFrozenApps = apps.filter { it.packageName !in frozenList && it.packageName != "com.aura.launcher.freezer" }
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(nonFrozenApps) { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        prefs.freezeApp(app.packageName)
+                                        frozenList = frozenList + app.packageName
+                                        onRefresh()
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Image(
+                                    painter = rememberDrawablePainter(app.icon),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(app.label, color = Color.White, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = { showAddDialog = false },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Done")
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xF2101625),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2193B0).copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("❄️ Aura Freezer", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("Frozen apps do not drain battery", color = Color.Cyan.copy(alpha = 0.7f), fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = { showAddDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2193B0)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Freeze App", fontSize = 12.sp)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+
+                if (frozenList.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Freezer is empty. Add apps to freeze and hibernate them.",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier.weight(1f, fill = false).heightIn(max = 300.dp)
+                    ) {
+                        items(frozenList) { pkg ->
+                            val app = appMap[pkg]
+                            if (app != null) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                        .clickable {
+                                            toast(context, "${app.label} is frozen! Unfreeze it first.")
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Image(
+                                            painter = rememberDrawablePainter(app.icon),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFF2193B0).copy(alpha = 0.4f))
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        app.label,
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            prefs.unfreezeApp(pkg)
+                                            frozenList = frozenList.filter { it != pkg }
+                                            onRefresh()
+                                        },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.height(24.dp)
+                                    ) {
+                                        Text("Unfreeze", color = Color.Cyan, fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f))
+                ) {
+                    Text("Close", color = Color.White)
+                }
+            }
+        }
     }
 }
 

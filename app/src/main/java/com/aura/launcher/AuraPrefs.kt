@@ -110,6 +110,28 @@ class AuraPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_SYSTEM_WALLPAPER, true)
         set(value) = prefs.edit().putBoolean(KEY_SYSTEM_WALLPAPER, value).apply()
 
+    var wasDefaultLauncher: Boolean
+        get() = prefs.getBoolean("was_default_launcher", false)
+        set(value) = prefs.edit().putBoolean("was_default_launcher", value).apply()
+
+    // ---- Frozen apps ---- (freezer mein daale gaye apps)
+    fun getFrozenApps(): Set<String> {
+        val raw = prefs.getString(KEY_FROZEN, "") ?: ""
+        return if (raw.isBlank()) emptySet() else raw.split("|").toSet()
+    }
+
+    fun freezeApp(pkg: String) {
+        val set = getFrozenApps().toMutableSet().also { it.add(pkg) }
+        prefs.edit().putString(KEY_FROZEN, set.joinToString("|")).apply()
+    }
+
+    fun unfreezeApp(pkg: String) {
+        val set = getFrozenApps().toMutableSet().also { it.remove(pkg) }
+        prefs.edit().putString(KEY_FROZEN, set.joinToString("|")).apply()
+    }
+
+    fun isFrozen(pkg: String): Boolean = pkg in getFrozenApps()
+
     var lastWeatherTemp: Int
         get() = prefs.getInt("last_weather_temp", 999)
         set(v) = prefs.edit().putInt("last_weather_temp", v).apply()
@@ -138,5 +160,6 @@ class AuraPrefs(context: Context) {
         private const val KEY_SWIPE_UP      = "gesture_swipe_up"
         private const val KEY_DOUBLE_TAP    = "gesture_double_tap"
         private const val KEY_SYSTEM_WALLPAPER = "use_system_wallpaper"
+        private const val KEY_FROZEN        = "frozen_apps"
     }
 }

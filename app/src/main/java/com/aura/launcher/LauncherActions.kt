@@ -24,9 +24,32 @@ object LauncherActions {
      * Check: kya Aura abhi default launcher hai?
      */
     fun isDefaultLauncher(context: Context): Boolean {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        val res = context.packageManager.resolveActivity(intent, 0)
-        return res?.activityInfo?.packageName == context.packageName
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val rm = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+            rm?.isRoleHeld(RoleManager.ROLE_HOME) ?: false
+        } else {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val res = context.packageManager.resolveActivity(intent, 0)
+            res?.activityInfo?.packageName == context.packageName
+        }
+    }
+
+    /**
+     * Role Propagation Delay aur Double App Launch se bachne ke liye safe restart.
+     */
+    fun restartAppSafely(context: Context) {
+        val pm = context.packageManager
+        val intent = pm.getLaunchIntentForPackage(context.packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        if (intent != null) {
+            context.startActivity(intent)
+            if (context is android.app.Activity) {
+                context.finish()
+            }
+            android.os.Process.killProcess(android.os.Process.myUid())
+        }
     }
 
     /**

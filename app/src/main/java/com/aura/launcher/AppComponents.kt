@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,19 +76,42 @@ fun AppIcon(
                         onClick()
                     },
                     onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        view.playSoundEffect(android.view.SoundEffectConstants.CLICK)
-                        menuOpen = true
+                        if (app.packageName != "com.aura.launcher.freezer") {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            view.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+                            menuOpen = true
+                        }
                     }
                 )
                 .padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
             Box {
-                Image(
-                    painter = rememberDrawablePainter(app.icon),
-                    contentDescription = app.label,
-                    modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
-                )
+                if (app.packageName == "com.aura.launcher.freezer") {
+                    Box(
+                        modifier = Modifier
+                            .size(iconSize.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color(0xFF2193B0), Color(0xFF6DD5ED))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AcUnit,
+                            contentDescription = "Freezer",
+                            tint = Color.White,
+                            modifier = Modifier.size((iconSize * 0.6f).dp)
+                        )
+                    }
+                } else {
+                    Image(
+                        painter = rememberDrawablePainter(app.icon),
+                        contentDescription = app.label,
+                        modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
+                    )
+                }
                 if (badgeCount > 0) {
                     Box(
                         modifier = Modifier
@@ -115,16 +139,22 @@ fun AppIcon(
         if (menuOpen) {
             val isFav = prefs.isFavorite(app.packageName)
             val isHidden = prefs.isHidden(app.packageName)
+            val isFrozen = prefs.isFrozen(app.packageName)
             CustomQuickActionsMenu(
                 app = app,
                 isFav = isFav,
                 isHidden = isHidden,
+                isFrozen = isFrozen,
                 onDismiss = { menuOpen = false },
                 onToggleFav = {
                     if (isFav) prefs.removeFavorite(app.packageName) else prefs.addFavorite(app.packageName)
                 },
                 onToggleHide = {
                     if (isHidden) prefs.showApp(app.packageName) else prefs.hideApp(app.packageName)
+                    menuOpen = false
+                },
+                onToggleFreeze = {
+                    if (isFrozen) prefs.unfreezeApp(app.packageName) else prefs.freezeApp(app.packageName)
                     menuOpen = false
                 },
                 onAppInfo = { AppRepository.openAppInfo(context, app.packageName) },
@@ -170,9 +200,11 @@ fun CustomQuickActionsMenu(
     app: AppInfo,
     isFav: Boolean,
     isHidden: Boolean,
+    isFrozen: Boolean,
     onDismiss: () -> Unit,
     onToggleFav: () -> Unit,
     onToggleHide: () -> Unit,
+    onToggleFreeze: () -> Unit,
     onAppInfo: () -> Unit,
     onUninstall: () -> Unit
 ) {
@@ -212,6 +244,16 @@ fun CustomQuickActionsMenu(
                     icon = if (isHidden) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                     text = if (isHidden) "Show app" else "Hide app",
                     onClick = { onToggleHide() }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.1f)))
+                Spacer(modifier = Modifier.height(4.dp))
+
+                QuickActionItem(
+                    icon = Icons.Filled.AcUnit,
+                    text = if (isFrozen) "Unfreeze app" else "Freeze app",
+                    onClick = { onToggleFreeze() }
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
