@@ -39,6 +39,8 @@ fun SettingsPanel(
     var iconPack  by remember { mutableStateOf(prefs.iconPack) }
     var showHiddenAppsManager by remember { mutableStateOf(false) }
     var showProDialog by remember { mutableStateOf(false) }
+    var showIconChangeWarning by remember { mutableStateOf(false) }
+    var pendingAliasToSet by remember { mutableStateOf("") }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -89,6 +91,50 @@ fun SettingsPanel(
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { showProDialog = false }) {
                         Text("Close", color = Color.White.copy(alpha = 0.6f))
+                    }
+                }
+            }
+        }
+    }
+
+    if (showIconChangeWarning) {
+        Dialog(onDismissRequest = { showIconChangeWarning = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF141124),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF9D86FF).copy(alpha = 0.5f)),
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("⚠️ Apply Icon Theme?", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Android security resets the default launcher choice when switching launcher icons. Aura will ask you to select it as your default launcher after you proceed.",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            showIconChangeWarning = false
+                            LauncherActions.setAppIcon(context, pendingAliasToSet)
+                            prefs.activeIconAlias = pendingAliasToSet
+                            onChanged()
+                            LauncherActions.requestSetDefault(context)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9D86FF)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Proceed & Set Default", color = Color(0xFF141124), fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { showIconChangeWarning = false }) {
+                        Text("Cancel", color = Color.White.copy(alpha = 0.6f))
                     }
                 }
             }
@@ -315,10 +361,10 @@ fun SettingsPanel(
                                 if (isProIcon && !prefs.isPro) {
                                     showProDialog = true
                                 } else {
-                                    selectedAliasState = alias
-                                    LauncherActions.setAppIcon(context, alias)
-                                    prefs.activeIconAlias = alias
-                                    android.widget.Toast.makeText(context, "Launcher icon updated! Check your home screen.", android.widget.Toast.LENGTH_SHORT).show()
+                                    if (alias != selectedAliasState) {
+                                        pendingAliasToSet = alias
+                                        showIconChangeWarning = true
+                                    }
                                 }
                             }
                             .padding(vertical = 8.dp),
@@ -330,10 +376,10 @@ fun SettingsPanel(
                                 if (isProIcon && !prefs.isPro) {
                                     showProDialog = true
                                 } else {
-                                    selectedAliasState = alias
-                                    LauncherActions.setAppIcon(context, alias)
-                                    prefs.activeIconAlias = alias
-                                    android.widget.Toast.makeText(context, "Launcher icon updated! Check your home screen.", android.widget.Toast.LENGTH_SHORT).show()
+                                    if (alias != selectedAliasState) {
+                                        pendingAliasToSet = alias
+                                        showIconChangeWarning = true
+                                    }
                                 }
                             },
                             colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF9D86FF))

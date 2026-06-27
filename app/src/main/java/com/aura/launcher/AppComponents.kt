@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.painter.Painter
 
+val LocalActiveIconAlias = androidx.compose.runtime.staticCompositionLocalOf { "" }
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppIcon(
@@ -56,6 +58,7 @@ fun AppIcon(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val activeIconAlias = LocalActiveIconAlias.current
     var menuOpen by remember { mutableStateOf(false) }
     val prefs = remember { AuraPrefs(context) }
     var badgeCount by remember { mutableStateOf(0) }
@@ -106,11 +109,88 @@ fun AppIcon(
                         )
                     }
                 } else {
-                    Image(
-                        painter = rememberDrawablePainter(app.icon),
-                        contentDescription = app.label,
-                        modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
-                    )
+                    val alias = activeIconAlias
+                    when {
+                        alias.contains("Neon", ignoreCase = true) -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
+                                    .border(1.5.dp, Color(0xFF00FFCC), RoundedCornerShape(12.dp))
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = rememberDrawablePainter(app.icon),
+                                    contentDescription = app.label,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF00FFCC)),
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        alias.contains("Whirl", ignoreCase = true) -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
+                                    .border(1.5.dp, Color(0xFF9D86FF), RoundedCornerShape(12.dp))
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = rememberDrawablePainter(app.icon),
+                                    contentDescription = app.label,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF9D86FF)),
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        alias.contains("Gold", ignoreCase = true) -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
+                                    .border(1.5.dp, Color(0xFFFFD700), RoundedCornerShape(12.dp))
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = rememberDrawablePainter(app.icon),
+                                    contentDescription = app.label,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFFFFD700)),
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        alias.contains("Cyber", ignoreCase = true) -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(iconSize.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
+                                    .border(1.5.dp, Color(0xFFFF007F), RoundedCornerShape(12.dp))
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = rememberDrawablePainter(app.icon),
+                                    contentDescription = app.label,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF00E5FF)),
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        else -> {
+                            Image(
+                                painter = rememberDrawablePainter(app.icon),
+                                contentDescription = app.label,
+                                modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
+                            )
+                        }
+                    }
                 }
                 if (badgeCount > 0) {
                     Box(

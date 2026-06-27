@@ -93,17 +93,25 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val prefs = remember { AuraPrefs(context) }
                 var onboarded by remember { mutableStateOf(prefs.isOnboarded) }
+                var activeIconAliasState by remember { mutableStateOf(prefs.activeIconAlias ?: "") }
 
-                if (!onboarded) {
-                    OnboardingScreen(
-                        prefs = prefs,
-                        onComplete = {
-                            prefs.isOnboarded = true
-                            onboarded = true
-                        }
-                    )
-                } else {
-                    AuraHomeScreen(drawerOpenState)
+                CompositionLocalProvider(LocalActiveIconAlias provides activeIconAliasState) {
+                    if (!onboarded) {
+                        OnboardingScreen(
+                            prefs = prefs,
+                            onComplete = {
+                                prefs.isOnboarded = true
+                                onboarded = true
+                            }
+                        )
+                    } else {
+                        AuraHomeScreen(
+                            drawerOpen = drawerOpenState,
+                            onIconAliasChanged = {
+                                activeIconAliasState = it
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -187,7 +195,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
+fun AuraHomeScreen(
+    drawerOpen: MutableState<Boolean>,
+    onIconAliasChanged: (String) -> Unit = {}
+) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
 
@@ -389,6 +400,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 onSettingsChanged = {
                     gridColumnsState = prefs.gridColumns
                     useSystemWallpaperState = prefs.useSystemWallpaper
+                    onIconAliasChanged(prefs.activeIconAlias ?: "")
                 },
                 onLockScreenTrigger = { lockScreenOpen = true }
             )
@@ -1645,7 +1657,7 @@ fun MultitaskerView(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp),
+                            .height(280.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -1656,72 +1668,118 @@ fun MultitaskerView(
                         )
                     }
                 } else {
-                    LazyColumn(
+                    LazyRow(
                         modifier = Modifier
-                            .weight(1f, fill = false)
-                            .heightIn(max = 260.dp)
+                            .fillMaxWidth()
+                            .height(280.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
                         items(filteredActive, key = { it.packageName }) { app ->
-                            Row(
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+                                shape = RoundedCornerShape(20.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp)
-                                    .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(12.dp))
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .width(180.dp)
+                                    .fillMaxHeight()
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                Column(
+                                    modifier = Modifier
+                                        .padding(12.dp)
+                                        .fillMaxSize(),
+                                    verticalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Image(
-                                        painter = rememberDrawablePainter(app.icon),
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                    )
-                                    Spacer(Modifier.width(12.dp))
-                                    Column {
+                                    // Icon + Label
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Image(
+                                            painter = rememberDrawablePainter(app.icon),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                        )
+                                        Spacer(Modifier.width(8.dp))
                                         Text(
                                             app.label,
                                             color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Text(
-                                            app.packageName,
-                                            color = Color.White.copy(alpha = 0.4f),
-                                            fontSize = 9.sp,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                }
 
-                                TextButton(
-                                    onClick = {
-                                        prefs.freezeApp(app.packageName)
-                                        activeListState = activeListState.filter { it.packageName != app.packageName }
-                                        toast(context, "${app.label} hibernated! ❄️")
-                                    },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5252))
-                                ) {
-                                    Text("Hibernate", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    // Preview placeholder
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.02f),
+                                                        Color.White.copy(alpha = 0.06f)
+                                                    )
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("⚡ Running", color = Color(0xFF00FFCC), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            Text(app.packageName.takeLast(16), color = Color.White.copy(alpha = 0.3f), fontSize = 8.sp, maxLines = 1)
+                                        }
+                                    }
+
+                                    // Action buttons (Lock + Hibernate)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                toast(context, "${app.label} locked in memory 🔒")
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Text("🔒", fontSize = 14.sp)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                prefs.freezeApp(app.packageName)
+                                                activeListState = activeListState.filter { it.packageName != app.packageName }
+                                                toast(context, "${app.label} hibernated! ❄️")
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252).copy(alpha = 0.15f)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("Hibernate", color = Color(0xFFFF8A8A), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
 
+                // Bottom row: centered Trash can + close text
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(
+                    IconButton(
                         onClick = {
                             activeListState.forEach { app ->
                                 prefs.freezeApp(app.packageName)
@@ -1730,20 +1788,18 @@ fun MultitaskerView(
                             toast(context, "RAM Cleared! All tasks hibernated. ⚡")
                             onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(Color(0xFFFF5252).copy(alpha = 0.15f), CircleShape)
+                            .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f), CircleShape)
                     ) {
-                        Text("Clear RAM ⚡", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("🗑️", fontSize = 24.sp)
                     }
 
-                    Button(
-                        onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Close", color = Color.White, fontSize = 13.sp)
+                    Spacer(Modifier.width(20.dp))
+
+                    TextButton(onClick = onDismiss) {
+                        Text("Close", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
                     }
                 }
             }
