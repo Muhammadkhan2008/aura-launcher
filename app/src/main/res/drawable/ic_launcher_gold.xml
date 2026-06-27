@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background: dark obsidian metallic -->
+    <path
+        android:fillColor="#151515"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+    <!-- Luxury Gold Accent Border -->
+    <path
+        android:strokeColor="#D4AF37"
+        android:strokeWidth="3.5"
+        android:pathData="M12,12 L96,12 L96,96 L12,96 Z" />
+    <!-- Gold Colored "A" logo -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M54,30 L70,78 L62,78 L58,66 L50,66 L46,78 L38,78 Z M52,58 L56,58 L54,46 Z" />
+</vector>

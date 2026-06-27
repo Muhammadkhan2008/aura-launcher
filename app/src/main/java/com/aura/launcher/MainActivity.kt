@@ -1,5 +1,6 @@
 package com.aura.launcher
 
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -19,9 +20,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -245,6 +251,8 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     var gridColumnsState by remember { mutableStateOf(prefs.gridColumns) }
     var useSystemWallpaperState by remember { mutableStateOf(prefs.useSystemWallpaper) }
     var openSettingsOnDrawerOpen by remember { mutableStateOf(false) }
+    var multitaskerOpen by remember { mutableStateOf(false) }
+    var homeFreezerOpen by remember { mutableStateOf(false) }
 
     val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
     val favorites = remember(apps, favPkgs) {
@@ -396,7 +404,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
             ) {
                 Surface(
                     shape = RoundedCornerShape(24.dp),
-                    color = Color(0xF21B1730), // Sleek glassmorphism look
+                    color = Color(0xF2141124), // Sleek glassmorphism look
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -408,16 +416,100 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                             .fillMaxWidth()
                     ) {
                         Text(
-                            text = "Quick Customization",
+                            text = "Aura Quick Dashboard",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 12.dp)
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
 
-                        // AI Premium Wallpapers Selector
+                        // 4 Big Dashboard Grid Shortcuts
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Column 1: Wallpaper & Freezer
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                // Wallpaper Selector Hub
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            // Do nothing extra, wallpaper hub is quick strip below
+                                        }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("🎨 Wallpapers", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Select dynamic AI themes", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                    }
+                                }
+
+                                // Freezer Dialog Shortcut
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            quickMenuOpen = false
+                                            homeFreezerOpen = true
+                                        }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("❄️ App Freezer", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Hibernate battery draining apps", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                    }
+                                }
+                            }
+
+                            // Column 2: Multitasker & Settings
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                // Multitasker panel
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            quickMenuOpen = false
+                                            multitaskerOpen = true
+                                        }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("🔀 Multitasker", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Search & view active apps", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                    }
+                                }
+
+                                // Settings Panel
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            quickMenuOpen = false
+                                            openSettingsOnDrawerOpen = true
+                                            drawerOpen.value = true
+                                        }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("⚙️ Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Customize launcher layout", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                        Divider(color = Color.White.copy(alpha = 0.1f))
+                        Spacer(Modifier.height(16.dp))
+
+                        // AI Wallpapers quick horizontal strip
+                        Text("Quick Wallpaper Apply:", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
                         WallpaperSelector(onApplied = {
-                            // Sync background transparency state in case they set a wallpaper
                             useSystemWallpaperState = true
                             prefs.useSystemWallpaper = true
                         })
@@ -466,37 +558,37 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                             }
                         }
 
-                        Spacer(Modifier.height(16.dp))
-                        Divider(color = Color.White.copy(alpha = 0.1f))
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(20.dp))
 
-                        // Footer Buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Button(
+                            onClick = { quickMenuOpen = false },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            TextButton(
-                                onClick = {
-                                    quickMenuOpen = false
-                                    openSettingsOnDrawerOpen = true
-                                    drawerOpen.value = true
-                                }
-                            ) {
-                                Text("All Settings  ⚙️", color = Color(0xFF9D86FF), fontWeight = FontWeight.SemiBold)
-                            }
-
-                            Button(
-                                onClick = { quickMenuOpen = false },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6))
-                            ) {
-                                Text("Done", color = Color.White)
-                            }
+                            Text("Done", color = Color.White)
                         }
                     }
                 }
             }
+        }
+
+        if (homeFreezerOpen) {
+            FreezerDialog(
+                prefs = prefs,
+                apps = apps,
+                onDismiss = { homeFreezerOpen = false },
+                onRefresh = {
+                    // Update freezer state
+                }
+            )
+        }
+
+        if (multitaskerOpen) {
+            MultitaskerView(
+                apps = apps,
+                onDismiss = { multitaskerOpen = false }
+            )
         }
     }
 }
@@ -646,6 +738,8 @@ fun AppDrawer(
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
     val scope = rememberCoroutineScope()
+    val gridState = rememberLazyGridState()
+    val alphabets = remember { ('A'..'Z').toList() }
 
     var query by remember { mutableStateOf("") }
     var settingsOpen by remember { mutableStateOf(false) }
@@ -829,37 +923,57 @@ fun AppDrawer(
             if (showCategories) {
                 CategoryList(context = context, apps = apps, onAppClick = onAppClick)
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(cols),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp)
-                ) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        AppIcon(
-                            app = app,
-                            onClick = {
-                                if (app.packageName == "com.aura.launcher.freezer") {
-                                    freezerOpen = true
-                                } else {
-                                    onAppClick(app)
+                Row(modifier = Modifier.fillMaxSize()) {
+                    if (query.isBlank()) {
+                        AlphabetSidebar(
+                            alphabets = alphabets,
+                            onLetterSelected = { letter ->
+                                scope.launch {
+                                    val index = filtered.indexOfFirst {
+                                        it.label.startsWith(letter.toString(), ignoreCase = true)
+                                    }
+                                    if (index >= 0) {
+                                        gridState.scrollToItem(index)
+                                    }
                                 }
                             }
                         )
                     }
-                    // Universal search: files bhi dikhao (jab query ho)
-                    if (files.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                "Files  (${files.size})",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 4.dp)
+
+                    LazyVerticalGrid(
+                        state = gridState,
+                        columns = GridCells.Fixed(cols),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        items(filtered, key = { it.packageName }) { app ->
+                            AppIcon(
+                                app = app,
+                                onClick = {
+                                    if (app.packageName == "com.aura.launcher.freezer") {
+                                        freezerOpen = true
+                                    } else {
+                                        onAppClick(app)
+                                    }
+                                }
                             )
                         }
-                        items(files, span = { GridItemSpan(maxLineSpan) }, key = { it.uri.toString() }) { f ->
-                            FileRow(file = f, onClick = { FileSearch.openFile(context, f) })
+                        // Universal search: files bhi dikhao (jab query ho)
+                        if (files.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    "Files  (${files.size})",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(files, span = { GridItemSpan(maxLineSpan) }, key = { it.uri.toString() }) { f ->
+                                FileRow(file = f, onClick = { FileSearch.openFile(context, f) })
+                            }
                         }
                     }
                 }
@@ -1299,6 +1413,299 @@ private fun executeAgenticAction(
                 }
                 "LOCK_SCREEN" -> {
                     LockHelper.lockScreen(context)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AlphabetSidebar(
+    alphabets: List<Char>,
+    onLetterSelected: (Char) -> Unit
+) {
+    var activeLetter by remember { mutableStateOf<Char?>(null) }
+    var boxHeight by remember { mutableStateOf(1f) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(28.dp)
+            .onGloballyPositioned { coordinates ->
+                boxHeight = coordinates.size.height.toFloat()
+            }
+            .pointerInput(alphabets, boxHeight) {
+                detectTapGestures(
+                    onPress = { offset ->
+                        val index = ((offset.y / boxHeight) * alphabets.size).toInt().coerceIn(0, alphabets.size - 1)
+                        val letter = alphabets[index]
+                        activeLetter = letter
+                        onLetterSelected(letter)
+                    }
+                )
+            }
+            .pointerInput(alphabets, boxHeight) {
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        val index = ((offset.y / boxHeight) * alphabets.size).toInt().coerceIn(0, alphabets.size - 1)
+                        val letter = alphabets[index]
+                        activeLetter = letter
+                        onLetterSelected(letter)
+                    },
+                    onDragEnd = { activeLetter = null },
+                    onDragCancel = { activeLetter = null },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val positionY = change.position.y
+                        val index = ((positionY / boxHeight) * alphabets.size).toInt().coerceIn(0, alphabets.size - 1)
+                        val letter = alphabets[index]
+                        if (letter != activeLetter) {
+                            activeLetter = letter
+                            onLetterSelected(letter)
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            alphabets.forEach { letter ->
+                val isSelected = letter == activeLetter
+                Text(
+                    text = letter.toString(),
+                    color = if (isSelected) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.5f),
+                    fontSize = if (isSelected) 13.sp else 10.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+            }
+        }
+
+        // Floating Bubble Indicator showing the selected letter
+        activeLetter?.let { letter ->
+            Box(
+                modifier = Modifier
+                    .offset(x = 48.dp) // Offset to the right to be visible over the grid
+                    .size(48.dp)
+                    .background(Color(0xFF6C4DF6), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = letter.toString(),
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun MultitaskerView(
+    apps: List<AppInfo>,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { AuraPrefs(context) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val activeApps = remember(apps) {
+        val list = if (RecentApps.hasUsagePermission(context)) {
+            val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+            val now = System.currentTimeMillis()
+            val dayAgo = now - 24 * 60 * 60 * 1000
+            val stats = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, dayAgo, now) ?: emptyList()
+            val lastUsed = stats.filter { it.lastTimeUsed > 0 }
+                .groupBy { it.packageName }
+                .mapValues { entry -> entry.value.maxOf { it.lastTimeUsed } }
+            lastUsed.entries.sortedByDescending { it.value }
+                .mapNotNull { e -> apps.find { it.packageName == e.key } }
+                .filter { it.packageName != context.packageName }
+                .take(20)
+        } else {
+            emptyList()
+        }
+        if (list.isEmpty()) {
+            RecentsHelper.getRunningTasks(context, max = 20).mapNotNull { rt ->
+                apps.find { it.packageName == rt.packageName }
+            }
+        } else {
+            list
+        }
+    }
+
+    var activeListState by remember { mutableStateOf(activeApps) }
+
+    val filteredActive = remember(searchQuery, activeListState) {
+        if (searchQuery.isBlank()) activeListState
+        else activeListState.filter { it.label.contains(searchQuery, ignoreCase = true) }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xF2141124),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.3f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            "🔀 Aura Multitasker",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${activeListState.size} active background tasks",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Home, "Home", tint = Color.White)
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search running tasks...", color = Color.White.copy(alpha = 0.5f)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF9D86FF),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                        containerColor = Color.White.copy(alpha = 0.05f)
+                    ),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.5f)) }
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                if (filteredActive.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            if (searchQuery.isNotBlank()) "No matching running apps"
+                            else "No active tasks found",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 13.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .heightIn(max = 260.dp)
+                    ) {
+                        items(filteredActive, key = { it.packageName }) { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                                    .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(12.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Image(
+                                        painter = rememberDrawablePainter(app.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            app.label,
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            app.packageName,
+                                            color = Color.White.copy(alpha = 0.4f),
+                                            fontSize = 9.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        prefs.freezeApp(app.packageName)
+                                        activeListState = activeListState.filter { it.packageName != app.packageName }
+                                        toast(context, "${app.label} hibernated! ❄️")
+                                    },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5252))
+                                ) {
+                                    Text("Hibernate", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            activeListState.forEach { app ->
+                                prefs.freezeApp(app.packageName)
+                            }
+                            activeListState = emptyList()
+                            toast(context, "RAM Cleared! All tasks hibernated. ⚡")
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Clear RAM ⚡", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Close", color = Color.White, fontSize = 13.sp)
+                    }
                 }
             }
         }

@@ -73,22 +73,27 @@ fun OnboardingScreen(
         ) { step ->
             when (step) {
                 1 -> WelcomeStep(onNext = { currentStep = 2 })
-                2 -> GridStep(
+                2 -> PlanStep(
                     prefs = prefs,
                     onBack = { currentStep = 1 },
                     onNext = { currentStep = 3 }
                 )
-                3 -> AiStep(
+                3 -> GridStep(
                     prefs = prefs,
                     onBack = { currentStep = 2 },
                     onNext = { currentStep = 4 }
                 )
-                4 -> PermissionsStep(
+                4 -> AiStep(
+                    prefs = prefs,
                     onBack = { currentStep = 3 },
                     onNext = { currentStep = 5 }
                 )
-                5 -> FinishStep(
+                5 -> PermissionsStep(
                     onBack = { currentStep = 4 },
+                    onNext = { currentStep = 6 }
+                )
+                6 -> FinishStep(
+                    onBack = { currentStep = 5 },
                     onComplete = onComplete
                 )
             }
@@ -101,7 +106,7 @@ fun OnboardingScreen(
                 .padding(bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            for (i in 1..5) {
+            for (i in 1..6) {
                 Box(
                     modifier = Modifier
                         .size(if (currentStep == i) 12.dp else 8.dp)
@@ -743,6 +748,153 @@ fun FinishStep(
                     .height(50.dp)
             ) {
                 Text("Enter Aura", color = Color(0xFF0F0C1E), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun PlanStep(
+    prefs: AuraPrefs,
+    onBack: () -> Unit,
+    onNext: () -> Unit
+) {
+    var selectedPro by remember { mutableStateOf(prefs.isPro) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "Choose Your Aura Plan",
+            color = Color.White,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            "Unlock premium customizers, AI backgrounds, and multitasking features.",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        // Plan 1: Free Plan Card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = if (!selectedPro) Color(0xFF6C4DF6).copy(alpha = 0.15f)
+                else Color.White.copy(alpha = 0.04f)
+            ),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 2.dp,
+                    color = if (!selectedPro) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .clickable { selectedPro = false }
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Free Plan", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("FREE", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("• Standard 4x4 Grid layout", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                Text("• 2 Free customizable app icons", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                Text("• Local weather and recent tasks panel", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Plan 2: Pro Plan Card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = if (selectedPro) Color(0xFF6C4DF6).copy(alpha = 0.15f)
+                else Color.White.copy(alpha = 0.04f)
+            ),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 2.dp,
+                    color = if (selectedPro) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .clickable { selectedPro = true }
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Aura Pro Plan", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFFFB300), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("PRO", color = Color(0xFF1B1730), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Text("$4.99/mo", color = Color(0xFFFFB300), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("• 10 Premium AI-Generated wallpapers", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                Text("• App Freezer (Hibernate system apps)", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                Text("• Alternate Premium App Icons (Whirl, Gold, Cyberpunk)", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                Text("• Advanced Custom Gestures & Grid controls", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            }
+        }
+
+        Spacer(Modifier.height(40.dp))
+
+        // Navigation Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedButton(
+                onClick = onBack,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+            ) {
+                Text("Back", fontSize = 14.sp)
+            }
+
+            Button(
+                onClick = {
+                    prefs.isPro = selectedPro
+                    onNext()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+            ) {
+                Text("Next", color = Color.White, fontSize = 14.sp)
             }
         }
     }

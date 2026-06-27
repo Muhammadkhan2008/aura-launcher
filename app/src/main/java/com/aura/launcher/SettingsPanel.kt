@@ -1,6 +1,7 @@
 package com.aura.launcher
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -37,6 +38,7 @@ fun SettingsPanel(
     var useSysWp  by remember { mutableStateOf(prefs.useSystemWallpaper) }
     var iconPack  by remember { mutableStateOf(prefs.iconPack) }
     var showHiddenAppsManager by remember { mutableStateOf(false) }
+    var showProDialog by remember { mutableStateOf(false) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -49,6 +51,48 @@ fun SettingsPanel(
             apps = apps,
             onDismiss = { showHiddenAppsManager = false }
         )
+    }
+
+    if (showProDialog) {
+        Dialog(onDismissRequest = { showProDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF141124),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300).copy(alpha = 0.5f)),
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("👑 Unlock Premium Icons", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "This launcher icon is a premium Pro feature. Upgrade your plan to unlock Whirl, Gold, and Cyberpunk icons, plus 10 dynamic AI wallpapers and Freezer features.",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            prefs.isPro = true
+                            showProDialog = false
+                            android.widget.Toast.makeText(context, "Thank you for subscribing to Pro! ✓", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Upgrade to Pro - $4.99/mo", color = Color(0xFF1B1730), fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { showProDialog = false }) {
+                        Text("Close", color = Color.White.copy(alpha = 0.6f))
+                    }
+                }
+            }
+        }
     }
 
     Dialog(onDismissRequest = onClose) {
@@ -230,6 +274,86 @@ fun SettingsPanel(
                             selected = iconPack == pack.packageName,
                             onClick = { iconPack = pack.packageName }
                         )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Divider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(Modifier.height(12.dp))
+
+                // ---- Launcher Icon Section ----
+                Text(
+                    "Launcher App Icon",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Change the launcher icon on your home screen.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+
+                val currentAlias = remember { prefs.activeIconAlias }
+                var selectedAliasState by remember { mutableStateOf(currentAlias) }
+
+                val appIcons = listOf(
+                    Triple("com.aura.launcher.MainActivity", "Classic Aura", false),
+                    Triple("com.aura.launcher.MainActivityAliasNeon", "Neon Cyan", false),
+                    Triple("com.aura.launcher.MainActivityAliasWhirl", "Whirl Violet (Pro)", true),
+                    Triple("com.aura.launcher.MainActivityAliasGold", "Gold Premium (Pro)", true),
+                    Triple("com.aura.launcher.MainActivityAliasCyber", "Cyber Pink (Pro)", true)
+                )
+
+                appIcons.forEach { (alias, name, isProIcon) ->
+                    val isSelected = selectedAliasState == alias
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (isProIcon && !prefs.isPro) {
+                                    showProDialog = true
+                                } else {
+                                    selectedAliasState = alias
+                                    LauncherActions.setAppIcon(context, alias)
+                                    prefs.activeIconAlias = alias
+                                    android.widget.Toast.makeText(context, "Launcher icon updated! Check your home screen.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = {
+                                if (isProIcon && !prefs.isPro) {
+                                    showProDialog = true
+                                } else {
+                                    selectedAliasState = alias
+                                    LauncherActions.setAppIcon(context, alias)
+                                    prefs.activeIconAlias = alias
+                                    android.widget.Toast.makeText(context, "Launcher icon updated! Check your home screen.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF9D86FF))
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = name,
+                            color = if (isSelected) Color(0xFF9D86FF) else Color.White,
+                            fontSize = 14.sp
+                        )
+                        if (isProIcon) {
+                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFFFFB300), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("PRO", color = Color(0xFF1B1730), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
 

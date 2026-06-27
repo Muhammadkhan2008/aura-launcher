@@ -114,6 +114,14 @@ class AuraPrefs(context: Context) {
         get() = prefs.getBoolean("was_default_launcher", false)
         set(value) = prefs.edit().putBoolean("was_default_launcher", value).apply()
 
+    var isPro: Boolean
+        get() = prefs.getBoolean("is_pro", false)
+        set(value) = prefs.edit().putBoolean("is_pro", value).apply()
+
+    var activeIconAlias: String
+        get() = prefs.getString("active_icon_alias", "com.aura.launcher.MainActivity") ?: "com.aura.launcher.MainActivity"
+        set(value) = prefs.edit().putString("active_icon_alias", value).apply()
+
     // ---- Frozen apps ---- (freezer mein daale gaye apps)
     fun getFrozenApps(): Set<String> {
         val raw = prefs.getString(KEY_FROZEN, "") ?: ""

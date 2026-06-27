@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background: cyber black -->
+    <path
+        android:fillColor="#05050A"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+    <!-- Cyberpunk Hot Pink frame -->
+    <path
+        android:strokeColor="#FF007F"
+        android:strokeWidth="3"
+        android:pathData="M10,10 L98,10 L98,98 L10,98 Z" />
+    <!-- Cyberpunk Cyan "A" logo -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,30 L70,78 L62,78 L58,66 L50,66 L46,78 L38,78 Z M52,58 L56,58 L54,46 Z" />
+</vector>

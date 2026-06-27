@@ -1,8 +1,10 @@
 package com.aura.launcher
 
 import android.app.role.RoleManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 
@@ -103,5 +105,30 @@ object LauncherActions {
         context.startActivity(
             Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+    }
+
+    /**
+     * Dynamically enable/disable launcher activity-aliases to switch app icon programmatically.
+     */
+    fun setAppIcon(context: Context, activeAliasName: String) {
+        val pm = context.packageManager
+        val pkg = context.packageName
+        val aliases = listOf(
+            "com.aura.launcher.MainActivity",
+            "com.aura.launcher.MainActivityAliasNeon",
+            "com.aura.launcher.MainActivityAliasWhirl",
+            "com.aura.launcher.MainActivityAliasGold",
+            "com.aura.launcher.MainActivityAliasCyber"
+        )
+        aliases.forEach { name ->
+            val comp = ComponentName(context, name)
+            val state = if (name == activeAliasName) {
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            } else {
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            }
+            // DONT_KILL_APP ensures we don't immediately crash the background process
+            pm.setComponentEnabledSetting(comp, state, PackageManager.DONT_KILL_APP)
+        }
     }
 }
