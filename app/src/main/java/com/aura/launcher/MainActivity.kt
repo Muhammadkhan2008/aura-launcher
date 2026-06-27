@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
                     OnboardingScreen(
                         prefs = prefs,
                         onComplete = {
+                            prefs.isOnboarded = true
                             onboarded = true
                         }
                     )
@@ -253,6 +254,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
     var openSettingsOnDrawerOpen by remember { mutableStateOf(false) }
     var multitaskerOpen by remember { mutableStateOf(false) }
     var homeFreezerOpen by remember { mutableStateOf(false) }
+    var lockScreenOpen by remember { mutableStateOf(false) }
 
     val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
     val favorites = remember(apps, favPkgs) {
@@ -291,13 +293,13 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                             when (prefs.swipeUpAction) {
                                 "OPEN_DRAWER"   -> drawerOpen.value = true
                                 "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
-                                "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                                "LOCK_SCREEN"   -> lockScreenOpen = true
                             }
                         } else if (dragAmount > 25) {
                             when (prefs.swipeDownAction) {
                                 "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
                                 "OPEN_DRAWER"   -> drawerOpen.value = true
-                                "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                                "LOCK_SCREEN"   -> lockScreenOpen = true
                             }
                         }
                     }
@@ -306,7 +308,7 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                     detectTapGestures(
                         onDoubleTap = {
                             when (prefs.doubleTapAction) {
-                                "LOCK_SCREEN"   -> LockHelper.lockScreen(context)
+                                "LOCK_SCREEN"   -> lockScreenOpen = true
                                 "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
                                 "OPEN_DRAWER"   -> drawerOpen.value = true
                             }
@@ -387,7 +389,8 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 onSettingsChanged = {
                     gridColumnsState = prefs.gridColumns
                     useSystemWallpaperState = prefs.useSystemWallpaper
-                }
+                },
+                onLockScreenTrigger = { lockScreenOpen = true }
             )
         }
 
@@ -590,6 +593,12 @@ fun AuraHomeScreen(drawerOpen: MutableState<Boolean>) {
                 onDismiss = { multitaskerOpen = false }
             )
         }
+
+        if (lockScreenOpen) {
+            AuraLockScreenOverlay(
+                onUnlock = { lockScreenOpen = false }
+            )
+        }
     }
 }
 
@@ -733,7 +742,8 @@ fun AppDrawer(
     onClose: () -> Unit,
     initialSettingsOpen: Boolean = false,
     onSettingsOpenHandled: () -> Unit = {},
-    onSettingsChanged: () -> Unit = {}
+    onSettingsChanged: () -> Unit = {},
+    onLockScreenTrigger: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
@@ -895,7 +905,16 @@ fun AppDrawer(
                                         val param = json.optString("param", "")
                                         val reply = json.optString("reply", "")
                                         aiAnswer = reply
-                                        executeAgenticAction(context, action, param, onClose, prefs, apps)
+                                        executeAgenticAction(
+                                            context = context,
+                                            action = action,
+                                            param = param,
+                                            onClose = onClose,
+                                            prefs = prefs,
+                                            apps = apps,
+                                            onQueryChange = { query = it },
+                                            onLockScreenTrigger = onLockScreenTrigger
+                                        )
                                     } else {
                                         aiAnswer = res.text
                                     }
@@ -924,22 +943,6 @@ fun AppDrawer(
                 CategoryList(context = context, apps = apps, onAppClick = onAppClick)
             } else {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    if (query.isBlank()) {
-                        AlphabetSidebar(
-                            alphabets = alphabets,
-                            onLetterSelected = { letter ->
-                                scope.launch {
-                                    val index = filtered.indexOfFirst {
-                                        it.label.startsWith(letter.toString(), ignoreCase = true)
-                                    }
-                                    if (index >= 0) {
-                                        gridState.scrollToItem(index)
-                                    }
-                                }
-                            }
-                        )
-                    }
-
                     LazyVerticalGrid(
                         state = gridState,
                         columns = GridCells.Fixed(cols),
@@ -975,6 +978,22 @@ fun AppDrawer(
                                 FileRow(file = f, onClick = { FileSearch.openFile(context, f) })
                             }
                         }
+                    }
+
+                    if (query.isBlank()) {
+                        AlphabetSidebar(
+                            alphabets = alphabets,
+                            onLetterSelected = { letter ->
+                                scope.launch {
+                                    val index = filtered.indexOfFirst {
+                                        it.label.startsWith(letter.toString(), ignoreCase = true)
+                                    }
+                                    if (index >= 0) {
+                                        gridState.scrollToItem(index)
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -1381,7 +1400,9 @@ private fun executeAgenticAction(
     param: String,
     onClose: () -> Unit,
     prefs: AuraPrefs,
-    apps: List<AppInfo>
+    apps: List<AppInfo>,
+    onQueryChange: (String) -> Unit = {},
+    onLockScreenTrigger: () -> Unit = {}
 ) {
     val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     mainHandler.post {
@@ -1412,7 +1433,25 @@ private fun executeAgenticAction(
                     }
                 }
                 "LOCK_SCREEN" -> {
-                    LockHelper.lockScreen(context)
+                    onLockScreenTrigger()
+                }
+                "SEARCH_FILES" -> {
+                    if (param.isNotBlank()) {
+                        onQueryChange(param)
+                    }
+                }
+                "CREATE_NOTE" -> {
+                    if (param.isNotBlank()) {
+                        val dir = java.io.File(context.getExternalFilesDir(null), "AuraNotes")
+                        if (!dir.exists()) dir.mkdirs()
+                        val file = java.io.File(dir, "note_${System.currentTimeMillis()}.txt")
+                        file.writeText(param)
+                        android.widget.Toast.makeText(
+                            context,
+                            "Note created: ${file.name} ✓",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
@@ -1489,7 +1528,7 @@ fun AlphabetSidebar(
         activeLetter?.let { letter ->
             Box(
                 modifier = Modifier
-                    .offset(x = 48.dp) // Offset to the right to be visible over the grid
+                    .offset(x = (-56).dp) // Offset to the left to be visible over the grid
                     .size(48.dp)
                     .background(Color(0xFF6C4DF6), CircleShape)
                     .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape),
@@ -1707,6 +1746,166 @@ fun MultitaskerView(
                         Text("Close", color = Color.White, fontSize = 13.sp)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun AuraLockScreenOverlay(
+    onUnlock: () -> Unit
+) {
+    val context = LocalContext.current
+
+    var timeString by remember { mutableStateOf("") }
+    var dateString by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            val now = java.util.Calendar.getInstance()
+            timeString = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
+            dateString = android.text.format.DateFormat.getMediumDateFormat(context).format(now.time)
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFA0B0814)) // Translucent glassmorphic overlay
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount ->
+                    if (dragAmount < -20) {
+                        onUnlock()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 60.dp, horizontal = 24.dp)
+        ) {
+            // Top section: Greeting + lock icon
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "🔒 Aura Secured",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(Modifier.height(48.dp))
+
+                // Giant premium clock
+                Text(
+                    text = timeString,
+                    color = Color.White,
+                    fontSize = 64.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-2).sp
+                )
+
+                // Date
+                Text(
+                    text = dateString,
+                    color = Color(0xFF9D86FF),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Middle section: Live info widgets (Battery + Weather)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                // Battery status with a sleek visual bar
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text("⚡", fontSize = 20.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Aura Battery Monitor", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Active Status", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            // Glowing indicator bar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(3.dp))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.85f) // Mock fill level
+                                        .fillMaxHeight()
+                                        .background(
+                                            Brush.horizontalGradient(listOf(Color(0xFF2193B0), Color(0xFF6D4DF6))),
+                                            RoundedCornerShape(3.dp)
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Weather Widget summary
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text("☀️", fontSize = 24.sp)
+                        Column {
+                            Text("Aura Live Weather", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("28°C • Sunny Skies • Clear Visibility", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
+            // Bottom section: Swipe guide
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "▲ Swipe up to unlock",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "Aura OS v1.0",
+                    color = Color.White.copy(alpha = 0.3f),
+                    fontSize = 10.sp
+                )
             }
         }
     }

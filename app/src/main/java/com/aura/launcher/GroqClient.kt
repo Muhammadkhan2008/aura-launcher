@@ -63,8 +63,8 @@ object GroqClient {
                 
                 You MUST return a valid JSON object matching this structure (and nothing else, no markdown wrapper, no backticks, just the raw JSON):
                 {
-                  "action": "LAUNCH_APP" | "OPEN_SETTINGS" | "OPEN_NOTIFICATIONS" | "CLOSE_DRAWER" | "SET_GRID" | "LOCK_SCREEN" | "SAY",
-                  "param": "string parameter value (e.g. package name, grid column count, or empty)",
+                  "action": "LAUNCH_APP" | "OPEN_SETTINGS" | "OPEN_NOTIFICATIONS" | "CLOSE_DRAWER" | "SET_GRID" | "LOCK_SCREEN" | "SEARCH_FILES" | "CREATE_NOTE" | "SAY",
+                  "param": "string parameter value (e.g. package name, grid column count, file name/search term, or empty)",
                   "reply": "User-facing spoken response explaining your action in the user's language"
                 }
                 
@@ -74,7 +74,9 @@ object GroqClient {
                 - To expand notification panel / status bar, use "action": "OPEN_NOTIFICATIONS".
                 - To close the app drawer and go back to home screen, use "action": "CLOSE_DRAWER".
                 - To change app grid column count (3 to 6), use "action": "SET_GRID" and set "param" to the column digit (e.g. "5").
-                - To lock the screen / turn off screen, use "action": "LOCK_SCREEN".
+                - To lock the screen / show lock overlay, use "action": "LOCK_SCREEN".
+                - To search for files on the device, use "action": "SEARCH_FILES" and set "param" to the search term (e.g. "cats" or "receipt").
+                - To create a note / text file, use "action": "CREATE_NOTE" and set "param" to the note content (e.g. "remember to buy milk").
                 - For other normal questions or queries, use "action": "SAY" and set "reply" to your answer.
                 
                 Here is the list of installed apps on the device:
