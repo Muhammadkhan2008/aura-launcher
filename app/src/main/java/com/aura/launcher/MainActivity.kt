@@ -48,6 +48,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.key
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -266,6 +271,7 @@ fun AuraHomeScreen(
     var multitaskerOpen by remember { mutableStateOf(false) }
     var homeFreezerOpen by remember { mutableStateOf(false) }
     var lockScreenOpen by remember { mutableStateOf(false) }
+    var layoutStyleState by remember { mutableStateOf(prefs.layoutStyle) }
 
     val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
     val favorites = remember(apps, favPkgs) {
@@ -276,94 +282,106 @@ fun AuraHomeScreen(
     Box(modifier = Modifier.fillMaxSize()) {
 
         // ---- HOME SCREEN ----
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    if (useSystemWallpaperState) {
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Black.copy(alpha = 0.35f),
-                                Color.Black.copy(alpha = 0.20f),
-                                Color.Black.copy(alpha = 0.35f)
+        if (layoutStyleState == "WINDOWS") {
+            AirViewWindowMode(
+                apps = apps,
+                favorites = favorites,
+                onSettingsOpen = {
+                    openSettingsOnDrawerOpen = true
+                    drawerOpen.value = true
+                },
+                onLockScreenTrigger = { lockScreenOpen = true }
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (useSystemWallpaperState) {
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.Black.copy(alpha = 0.35f),
+                                    Color.Black.copy(alpha = 0.20f),
+                                    Color.Black.copy(alpha = 0.35f)
+                                )
                             )
-                        )
-                    } else {
-                        Brush.verticalGradient(
-                            listOf(
-                                Color(0xFF0F0C1E),
-                                Color(0xFF1B1730).copy(alpha = 0.9f),
-                                Color(0xFF0F0C1E)
+                        } else {
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF0F0C1E),
+                                    Color(0xFF1B1730).copy(alpha = 0.9f),
+                                    Color(0xFF0F0C1E)
+                                )
                             )
-                        )
-                    }
-                )
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount < -25) {
-                            when (prefs.swipeUpAction) {
-                                "OPEN_DRAWER"   -> drawerOpen.value = true
-                                "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
-                                "LOCK_SCREEN"   -> lockScreenOpen = true
-                            }
-                        } else if (dragAmount > 25) {
-                            when (prefs.swipeDownAction) {
-                                "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
-                                "OPEN_DRAWER"   -> drawerOpen.value = true
-                                "LOCK_SCREEN"   -> lockScreenOpen = true
-                            }
-                        }
-                    }
-                }
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            when (prefs.doubleTapAction) {
-                                "LOCK_SCREEN"   -> lockScreenOpen = true
-                                "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
-                                "OPEN_DRAWER"   -> drawerOpen.value = true
-                            }
-                        },
-                        onLongPress = {
-                            quickMenuOpen = true
                         }
                     )
-                }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures { _, dragAmount ->
+                            if (dragAmount < -25) {
+                                when (prefs.swipeUpAction) {
+                                    "OPEN_DRAWER"   -> drawerOpen.value = true
+                                    "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                                    "LOCK_SCREEN"   -> lockScreenOpen = true
+                                }
+                            } else if (dragAmount > 25) {
+                                when (prefs.swipeDownAction) {
+                                    "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                                    "OPEN_DRAWER"   -> drawerOpen.value = true
+                                    "LOCK_SCREEN"   -> lockScreenOpen = true
+                                }
+                            }
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                when (prefs.doubleTapAction) {
+                                    "LOCK_SCREEN"   -> lockScreenOpen = true
+                                    "NOTIFICATIONS" -> LauncherActions.openNotifications(context)
+                                    "OPEN_DRAWER"   -> drawerOpen.value = true
+                                }
+                            },
+                            onLongPress = {
+                                quickMenuOpen = true
+                            }
+                        )
+                    }
             ) {
-                // Top: battery row + clock + weather (same on all pages)
-                Column {
-                    // Battery widget — top right
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 48.dp, end = 20.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        BatteryWidget()
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Top: battery row + clock + weather (same on all pages)
+                    Column {
+                        // Battery widget — top right
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 48.dp, end = 20.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            BatteryWidget()
+                        }
+                        if (!isDefault) {
+                            SetDefaultBanner(onClick = { LauncherActions.requestSetDefault(context) })
+                        }
+                        ClockHeader(modifier = Modifier.padding(top = 4.dp))
+                        WeatherWidget(modifier = Modifier.padding(top = 4.dp))
                     }
-                    if (!isDefault) {
-                        SetDefaultBanner(onClick = { LauncherActions.requestSetDefault(context) })
-                    }
-                    ClockHeader(modifier = Modifier.padding(top = 4.dp))
-                    WeatherWidget(modifier = Modifier.padding(top = 4.dp))
-                }
 
-                // Middle: suggestions + recents
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (predicted.isNotEmpty()) {
-                        SmartSuggestRow(predicted = predicted) { AppRepository.launchApp(context, it) }
+                    // Middle: suggestions + recents
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (predicted.isNotEmpty()) {
+                            SmartSuggestRow(predicted = predicted) { AppRepository.launchApp(context, it) }
+                        }
+                        if (recents.isNotEmpty()) {
+                            RecentRow(recents = recents, onSearchClick = { multitaskerOpen = true })
+                        }
+                        Text("Swipe up for apps  ▲",
+                            color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 16.dp))
+                        DockBar(favorites = favorites)
                     }
-                    if (recents.isNotEmpty()) {
-                        RecentRow(recents = recents)
-                    }
-                    Text("Swipe up for apps  ▲",
-                        color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 16.dp))
-                    DockBar(favorites = favorites)
                 }
             }
         }
@@ -400,6 +418,7 @@ fun AuraHomeScreen(
                 onSettingsChanged = {
                     gridColumnsState = prefs.gridColumns
                     useSystemWallpaperState = prefs.useSystemWallpaper
+                    layoutStyleState = prefs.layoutStyle
                     onIconAliasChanged(prefs.activeIconAlias ?: "")
                 },
                 onLockScreenTrigger = { lockScreenOpen = true }
@@ -674,16 +693,34 @@ fun SetDefaultBanner(onClick: () -> Unit) {
  * RecentRow — Aura ka apna recent apps (system recents ka alternative).
  */
 @Composable
-fun RecentRow(recents: List<AppInfo>) {
+fun RecentRow(recents: List<AppInfo>, onSearchClick: () -> Unit) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            "Recent",
-            color = Color(0xFF9D86FF),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Recent Apps",
+                color = Color(0xFF9D86FF),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Search,
+                    contentDescription = "Search Recents",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1683,6 +1720,10 @@ fun MultitaskerView(
                                 modifier = Modifier
                                     .width(180.dp)
                                     .fillMaxHeight()
+                                    .clickable {
+                                        AppRepository.launchApp(context, app)
+                                        onDismiss()
+                                    }
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -1965,6 +2006,773 @@ fun AuraLockScreenOverlay(
             }
         }
     }
+}
+
+// -------------------------------------------------------------
+// WINDOWS DESKTOP LAYOUT (AIR VIEW WINDOW MODE) IMPLEMENTATION
+// -------------------------------------------------------------
+
+data class WindowInfo(
+    val app: AppInfo?,
+    val type: String = "APP", // "APP" or "BROWSER"
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val initialOffset: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset(100f, 150f),
+    var offset: androidx.compose.ui.geometry.Offset = initialOffset,
+    var isMaximized: Boolean = false,
+    var isMinimized: Boolean = false,
+    var size: androidx.compose.ui.unit.DpSize = androidx.compose.ui.unit.DpSize(340.dp, 450.dp),
+    var zIndex: Float = 0f,
+    val initialUrl: String = "https://google.com",
+    var currentUrl: String = initialUrl
+)
+
+@Composable
+fun AirViewWindowMode(
+    apps: List<AppInfo>,
+    favorites: List<AppInfo>,
+    onSettingsOpen: () -> Unit,
+    onLockScreenTrigger: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { AuraPrefs(context) }
+
+    // List of active windows
+    var activeWindows by remember { mutableStateOf(listOf<WindowInfo>()) }
+    // Start menu open state
+    var startMenuOpen by remember { mutableStateOf(false) }
+    // Start menu search query
+    var startSearchQuery by remember { mutableStateOf("") }
+
+    val density = LocalDensity.current
+
+    // Sort apps for start menu
+    val filteredApps = remember(apps, startSearchQuery) {
+        if (startSearchQuery.isBlank()) apps
+        else apps.filter { it.label.contains(startSearchQuery, ignoreCase = true) }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF0C091F),
+                        Color(0xFF1E173C),
+                        Color(0xFF0C091F)
+                    )
+                )
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    startMenuOpen = false
+                })
+            }
+    ) {
+        // Desktop Grid (icons for My PC, Recycle Bin, and some shortcuts)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 40.dp, start = 20.dp, end = 20.dp, bottom = 80.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // First Desktop icons row
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                DesktopIcon("🖳", "This PC") {
+                    android.widget.Toast.makeText(context, "This PC is empty (System Virtual Drive)", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                DesktopIcon("🗑️", "Recycle Bin") {
+                    android.widget.Toast.makeText(context, "Recycle Bin: 0 items", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                DesktopIcon("🌐", "Web Browser") {
+                    // Open a Browser window!
+                    val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+                    activeWindows = activeWindows + WindowInfo(
+                        app = null,
+                        type = "BROWSER",
+                        initialUrl = "https://google.com",
+                        zIndex = maxZ + 1f
+                    )
+                }
+                DesktopIcon("⚙️", "Settings") {
+                    onSettingsOpen()
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Favorite apps as desktop shortcuts
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                favorites.take(4).forEach { app ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .width(64.dp)
+                            .clickable {
+                                activeWindows = openOrFocusWindow(activeWindows, app)
+                            }
+                    ) {
+                        Image(
+                            painter = rememberDrawablePainter(app.icon),
+                            contentDescription = app.label,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = app.label,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
+        // Active floating windows
+        activeWindows.forEach { window ->
+            if (!window.isMinimized) {
+                key(window.id) {
+                    FloatingWindow(
+                        window = window,
+                        onFocus = {
+                            val current = activeWindows.toMutableList()
+                            val idx = current.indexOfFirst { it.id == window.id }
+                            if (idx != -1) {
+                                val win = current.removeAt(idx)
+                                val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
+                                current.add(win.copy(zIndex = maxZ + 1f))
+                                activeWindows = current
+                            }
+                        },
+                        onMinimize = {
+                            activeWindows = activeWindows.map {
+                                if (it.id == window.id) it.copy(isMinimized = true) else it
+                            }
+                        },
+                        onMaximizeToggle = {
+                            activeWindows = activeWindows.map {
+                                if (it.id == window.id) it.copy(isMaximized = !it.isMaximized) else it
+                            }
+                        },
+                        onClose = {
+                            activeWindows = activeWindows.filter { it.id != window.id }
+                        },
+                        onDrag = { dragAmount ->
+                            activeWindows = activeWindows.map {
+                                if (it.id == window.id) {
+                                    val newOffset = it.offset + dragAmount
+                                    it.copy(offset = newOffset)
+                                } else it
+                            }
+                        },
+                        onResize = { dragAmount ->
+                            activeWindows = activeWindows.map {
+                                if (it.id == window.id) {
+                                    val dx = with(density) { dragAmount.x.toDp() }
+                                    val dy = with(density) { dragAmount.y.toDp() }
+                                    val newW = (it.size.width + dx).coerceAtLeast(240.dp)
+                                    val newH = (it.size.height + dy).coerceAtLeast(300.dp)
+                                    it.copy(size = DpSize(newW, newH))
+                                } else it
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        // Windows-like Taskbar at the bottom
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(60.dp)
+                .background(Color(0xE60D0B18))
+                .border(1.dp, Color.White.copy(alpha = 0.08f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left: Start Button + Search icon + Pinned/Running Apps
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Start Button
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.3f) else Color.Transparent)
+                            .clickable { startMenuOpen = !startMenuOpen }
+                            .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🪟", fontSize = 22.sp)
+                    }
+
+                    // Taskbar search button
+                    IconButton(
+                        onClick = {
+                            startMenuOpen = true
+                            startSearchQuery = ""
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.7f))
+                    }
+
+                    // Divider
+                    Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.1f)))
+
+                    // Running app windows in taskbar
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        activeWindows.forEach { win ->
+                            val isFocused = activeWindows.maxByOrNull { it.zIndex }?.id == win.id && !win.isMinimized
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .width(60.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (isFocused) Color.White.copy(alpha = 0.1f)
+                                        else Color.White.copy(alpha = 0.03f)
+                                    )
+                                    .clickable {
+                                        // Toggle minimize/restore
+                                        val current = activeWindows.toMutableList()
+                                        val idx = current.indexOfFirst { it.id == win.id }
+                                        if (idx != -1) {
+                                            val w = current[idx]
+                                            if (w.isMinimized) {
+                                                val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
+                                                current[idx] = w.copy(isMinimized = false, zIndex = maxZ + 1f)
+                                            } else if (isFocused) {
+                                                current[idx] = w.copy(isMinimized = true)
+                                            } else {
+                                                val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
+                                                current[idx] = w.copy(zIndex = maxZ + 1f)
+                                            }
+                                            activeWindows = current
+                                        }
+                                    }
+                                    .border(
+                                        1.dp,
+                                        if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.05f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    if (win.type == "BROWSER") {
+                                        Text("🌐", fontSize = 16.sp)
+                                    } else if (win.app != null) {
+                                        Image(
+                                            painter = rememberDrawablePainter(win.app.icon),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    // Small bar underneath to show active
+                                    Box(
+                                        modifier = Modifier
+                                            .width(16.dp)
+                                            .height(2.dp)
+                                            .background(if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.4f))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Right: System Tray (Clock)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(end = 4.dp)
+                ) {
+                    val systemTime = remember { mutableStateOf("") }
+                    LaunchedEffect(Unit) {
+                        while(true) {
+                            val now = java.util.Calendar.getInstance()
+                            systemTime.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
+                            kotlinx.coroutines.delay(1000)
+                        }
+                    }
+
+                    Text(
+                        text = "⚡",
+                        fontSize = 11.sp,
+                        color = Color(0xFF66E08F)
+                    )
+
+                    Text(
+                        text = systemTime.value,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        // Start Menu Overlay (Windows-like Start Menu)
+        if (startMenuOpen) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 68.dp)
+                    .width(320.dp)
+                    .height(440.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFA110E21))
+                    .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Start Search
+                    OutlinedTextField(
+                        value = startSearchQuery,
+                        onValueChange = { startSearchQuery = it },
+                        placeholder = { Text("Search programs...", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF9D86FF),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                            focusedContainerColor = Color.White.copy(alpha = 0.03f),
+                            unfocusedContainerColor = Color.White.copy(alpha = 0.03f)
+                        ),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(16.dp)) }
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Main Start Menu Area: left bar (sidebar) + right list (apps)
+                    Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        // Left sidebar of Start Menu (Quick Actions)
+                        Column(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .fillMaxHeight()
+                                .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(8.dp))
+                                .padding(vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Avatar
+                            Text("👤", fontSize = 18.sp)
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            // Settings
+                            IconButton(onClick = {
+                                onSettingsOpen()
+                                startMenuOpen = false
+                            }) {
+                                Icon(Icons.Filled.Settings, "Settings", tint = Color.White.copy(alpha = 0.6f))
+                            }
+                            // Lock screen
+                            IconButton(onClick = {
+                                onLockScreenTrigger()
+                                startMenuOpen = false
+                            }) {
+                                Text("🔒", fontSize = 16.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Right list (All Apps)
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            if (filteredApps.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("No programs found", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                                }
+                            } else {
+                                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(filteredApps.size) { index ->
+                                        val app = filteredApps[index]
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    activeWindows = openOrFocusWindow(activeWindows, app)
+                                                    startMenuOpen = false
+                                                }
+                                                .padding(6.dp)
+                                        ) {
+                                            Image(
+                                                painter = rememberDrawablePainter(app.icon),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = app.label,
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FloatingWindow(
+    window: WindowInfo,
+    onFocus: () -> Unit,
+    onMinimize: () -> Unit,
+    onMaximizeToggle: () -> Unit,
+    onClose: () -> Unit,
+    onDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
+    onResize: (androidx.compose.ui.geometry.Offset) -> Unit
+) {
+    val context = LocalContext.current
+
+    // Resolve offset and size depending on Maximized state
+    val modifier = if (window.isMaximized) {
+        Modifier
+            .fillMaxSize()
+            .padding(bottom = 60.dp) // Leave taskbar visible
+    } else {
+        Modifier
+            .offset(
+                x = with(LocalDensity.current) { window.offset.x.toDp() },
+                y = with(LocalDensity.current) { window.offset.y.toDp() }
+            )
+            .size(window.size)
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xF2161426)),
+        shape = if (window.isMaximized) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f)),
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = { onFocus() })
+            }
+            .zIndex(window.zIndex)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Title bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .background(Color(0xFF221F38))
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { onFocus() },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    if (!window.isMaximized) {
+                                        onDrag(dragAmount)
+                                    }
+                                }
+                            )
+                        }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (window.type == "BROWSER") {
+                            Text("🌐", fontSize = 14.sp)
+                            Text(
+                                text = "Aura Web Browser",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else if (window.app != null) {
+                            Image(
+                                painter = rememberDrawablePainter(window.app.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = window.app.label,
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // Min, Max, Close Buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Minimize
+                        IconButton(onClick = onMinimize, modifier = Modifier.size(24.dp)) {
+                            Text("—", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                        // Maximize
+                        IconButton(onClick = onMaximizeToggle, modifier = Modifier.size(24.dp)) {
+                            Text(if (window.isMaximized) "🗗" else "🗖", color = Color.White, fontSize = 9.sp)
+                        }
+                        // Close
+                        IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
+                            Text("✕", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Window Content Area
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(Color(0xFF0F0C1E))
+                ) {
+                    if (window.type == "BROWSER") {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            var urlInput by remember { mutableStateOf(window.currentUrl) }
+                            var webViewInstance by remember { mutableStateOf<android.webkit.WebView?>(null) }
+
+                            // Address bar row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF1E173C))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Back Button
+                                IconButton(
+                                    onClick = {
+                                        webViewInstance?.let {
+                                            if (it.canGoBack()) it.goBack()
+                                        }
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Text("←", color = Color.White, fontSize = 14.sp)
+                                }
+
+                                // URL text field
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = urlInput,
+                                    onValueChange = { urlInput = it },
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        imeAction = androidx.compose.ui.text.input.ImeAction.Go
+                                    ),
+                                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                        onGo = {
+                                            var formattedUrl = urlInput.trim()
+                                            if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+                                                formattedUrl = "https://$formattedUrl"
+                                            }
+                                            urlInput = formattedUrl
+                                            window.currentUrl = formattedUrl
+                                            webViewInstance?.loadUrl(formattedUrl)
+                                        }
+                                    ),
+                                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 11.sp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+
+                                // Go Button
+                                IconButton(
+                                    onClick = {
+                                        var formattedUrl = urlInput.trim()
+                                        if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+                                            formattedUrl = "https://$formattedUrl"
+                                        }
+                                        urlInput = formattedUrl
+                                        window.currentUrl = formattedUrl
+                                        webViewInstance?.loadUrl(formattedUrl)
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Text("Go", color = Color(0xFF9D86FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            // WebView area
+                            AndroidView(
+                                factory = { ctx ->
+                                    android.webkit.WebView(ctx).apply {
+                                        webViewClient = android.webkit.WebViewClient()
+                                        settings.apply {
+                                            javaScriptEnabled = true
+                                            domStorageEnabled = true
+                                            builtInZoomControls = true
+                                            displayZoomControls = false
+                                            useWideViewPort = true
+                                            loadWithOverviewMode = true
+                                            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                        }
+                                        loadUrl(window.currentUrl)
+                                        webViewInstance = this
+                                    }
+                                },
+                                update = { webView ->
+                                    // Can add dynamic updates here
+                                },
+                                modifier = Modifier.weight(1f).fillMaxWidth()
+                            )
+                        }
+                    } else if (window.app != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable {
+                                    AppRepository.launchApp(context, window.app)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Image(
+                                    painter = rememberDrawablePainter(window.app.icon),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Tap inside window to run",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { AppRepository.launchApp(context, window.app) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Run Fullscreen ⚡", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Resize Handle at bottom right (Only if not maximized)
+            if (!window.isMaximized) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(16.dp)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { onFocus() },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    onResize(dragAmount)
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("◢", color = Color.White.copy(alpha = 0.3f), fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DesktopIcon(
+    emoji: String,
+    label: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(emoji, fontSize = 24.sp)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
+}
+
+fun openOrFocusWindow(currentList: List<WindowInfo>, app: AppInfo): List<WindowInfo> {
+    val list = currentList.toMutableList()
+    val idx = list.indexOfFirst { it.app?.packageName == app.packageName }
+    val maxZ = list.maxOfOrNull { it.zIndex } ?: 0f
+
+    if (idx != -1) {
+        // Bring to focus & restore
+        val win = list.removeAt(idx)
+        list.add(win.copy(isMinimized = false, zIndex = maxZ + 1f))
+    } else {
+        // Create new window slightly shifted to avoid direct overlap
+        val offsetVal = 100f + (list.size * 30) % 300f
+        list.add(
+            WindowInfo(
+                app = app,
+                initialOffset = androidx.compose.ui.geometry.Offset(offsetVal, offsetVal),
+                zIndex = maxZ + 1f
+            )
+        )
+    }
+    return list
 }
 
 

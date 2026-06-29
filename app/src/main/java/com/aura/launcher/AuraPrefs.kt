@@ -122,6 +122,10 @@ class AuraPrefs(context: Context) {
         get() = prefs.getString("active_icon_alias", "com.aura.launcher.MainActivity") ?: "com.aura.launcher.MainActivity"
         set(value) = prefs.edit().putString("active_icon_alias", value).apply()
 
+    var layoutStyle: String
+        get() = prefs.getString("layout_style", "STANDARD") ?: "STANDARD"
+        set(value) = prefs.edit().putString("layout_style", value).apply()
+
     // ---- Frozen apps ---- (freezer mein daale gaye apps)
     fun getFrozenApps(): Set<String> {
         val raw = prefs.getString(KEY_FROZEN, "") ?: ""
