@@ -53,6 +53,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.key
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.viewinterop.AndroidView
+import android.net.Uri
+import android.provider.MediaStore
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -2014,7 +2016,7 @@ fun AuraLockScreenOverlay(
 
 data class WindowInfo(
     val app: AppInfo?,
-    val type: String = "APP", // "APP" or "BROWSER"
+    val type: String = "APP", // "APP" | "BROWSER" | "EXPLORER"
     val id: String = java.util.UUID.randomUUID().toString(),
     val initialOffset: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset(100f, 150f),
     var offset: androidx.compose.ui.geometry.Offset = initialOffset,
@@ -2023,8 +2025,58 @@ data class WindowInfo(
     var size: androidx.compose.ui.unit.DpSize = androidx.compose.ui.unit.DpSize(340.dp, 450.dp),
     var zIndex: Float = 0f,
     val initialUrl: String = "https://google.com",
-    var currentUrl: String = initialUrl
+    var currentUrl: String = initialUrl,
+    var currentFolder: String = "This PC"
 )
+
+sealed class DesktopItem {
+    data class SystemItem(val id: String, val label: String, val emoji: String, val onClick: () -> Unit) : DesktopItem()
+    data class AppItem(val app: AppInfo) : DesktopItem()
+}
+
+fun getMediaStoreFiles(context: Context, type: FileType): List<FileResult> {
+    val results = mutableListOf<FileResult>()
+    val baseUri = when (type) {
+        FileType.IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        FileType.VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        FileType.AUDIO -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        FileType.DOCUMENT -> MediaStore.Files.getContentUri("external")
+    }
+
+    val projection = arrayOf(
+        MediaStore.MediaColumns._ID,
+        MediaStore.MediaColumns.DISPLAY_NAME,
+        MediaStore.MediaColumns.MIME_TYPE
+    )
+
+    val selection = when (type) {
+        FileType.DOCUMENT -> "${MediaStore.MediaColumns.MIME_TYPE} = ? OR ${MediaStore.MediaColumns.MIME_TYPE} = ?"
+        else -> null
+    }
+    val selectionArgs = when (type) {
+        FileType.DOCUMENT -> arrayOf("application/pdf", "text/plain")
+        else -> null
+    }
+
+    runCatching {
+        context.contentResolver.query(
+            baseUri, projection, selection, selectionArgs,
+            "${MediaStore.MediaColumns.DATE_MODIFIED} DESC LIMIT 30"
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idCol)
+                val name = cursor.getString(nameCol) ?: continue
+                val mime = cursor.getString(mimeCol) ?: "application/octet-stream"
+                val uri = Uri.withAppendedPath(baseUri, id.toString())
+                results.add(FileResult(name, uri, mime, type))
+            }
+        }
+    }
+    return results
+}
 
 @Composable
 fun AirViewWindowMode(
@@ -2045,6 +2097,57 @@ fun AirViewWindowMode(
 
     val density = LocalDensity.current
 
+    // Combine system desktop shortcuts and user apps in a Windows Desktop style
+    val desktopItems = remember(apps) {
+        val list = mutableListOf<DesktopItem>()
+        // User Folder
+        list.add(DesktopItem.SystemItem("user", "User Profile", "📁") {
+            val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+            activeWindows = activeWindows + WindowInfo(
+                app = null,
+                type = "EXPLORER",
+                currentFolder = "Documents",
+                zIndex = maxZ + 1f
+            )
+        })
+        // This PC
+        list.add(DesktopItem.SystemItem("pc", "This PC", "💻") {
+            val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+            activeWindows = activeWindows + WindowInfo(
+                app = null,
+                type = "EXPLORER",
+                currentFolder = "This PC",
+                zIndex = maxZ + 1f
+            )
+        })
+        // Recycle Bin
+        list.add(DesktopItem.SystemItem("bin", "Recycle Bin", "🗑️") {
+            android.widget.Toast.makeText(context, "Recycle Bin is empty ✓", android.widget.Toast.LENGTH_SHORT).show()
+        })
+        // Web Browser
+        list.add(DesktopItem.SystemItem("browser", "Web Browser", "🌐") {
+            val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+            activeWindows = activeWindows + WindowInfo(
+                app = null,
+                type = "BROWSER",
+                zIndex = maxZ + 1f
+            )
+        })
+        // Settings
+        list.add(DesktopItem.SystemItem("settings", "Control Panel", "⚙️") {
+            onSettingsOpen()
+        })
+        // All other apps
+        apps.forEach { list.add(DesktopItem.AppItem(it)) }
+        list
+    }
+
+    // Chunk into columns of 6 items each
+    val itemsPerColumn = 6
+    val chunkedItems = remember(desktopItems) {
+        desktopItems.chunked(itemsPerColumn)
+    }
+
     // Sort apps for start menu
     val filteredApps = remember(apps, startSearchQuery) {
         if (startSearchQuery.isBlank()) apps
@@ -2057,9 +2160,9 @@ fun AirViewWindowMode(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF0C091F),
-                        Color(0xFF1E173C),
-                        Color(0xFF0C091F)
+                        Color(0xFF0A0718),
+                        Color(0xFF140F2E),
+                        Color(0xFF0A0718)
                     )
                 )
             )
@@ -2069,64 +2172,32 @@ fun AirViewWindowMode(
                 })
             }
     ) {
-        // Desktop Grid (icons for My PC, Recycle Bin, and some shortcuts)
-        Column(
+        // Horizontally scrolling columns of desktop icons
+        LazyRow(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 40.dp, start = 20.dp, end = 20.dp, bottom = 80.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(top = 40.dp, start = 16.dp, end = 16.dp, bottom = 80.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // First Desktop icons row
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                DesktopIcon("🖳", "This PC") {
-                    android.widget.Toast.makeText(context, "This PC is empty (System Virtual Drive)", android.widget.Toast.LENGTH_SHORT).show()
-                }
-                DesktopIcon("🗑️", "Recycle Bin") {
-                    android.widget.Toast.makeText(context, "Recycle Bin: 0 items", android.widget.Toast.LENGTH_SHORT).show()
-                }
-                DesktopIcon("🌐", "Web Browser") {
-                    // Open a Browser window!
-                    val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
-                    activeWindows = activeWindows + WindowInfo(
-                        app = null,
-                        type = "BROWSER",
-                        initialUrl = "https://google.com",
-                        zIndex = maxZ + 1f
-                    )
-                }
-                DesktopIcon("⚙️", "Settings") {
-                    onSettingsOpen()
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Favorite apps as desktop shortcuts
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                favorites.take(4).forEach { app ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .width(64.dp)
-                            .clickable {
-                                activeWindows = openOrFocusWindow(activeWindows, app)
+            items(chunkedItems.size) { colIndex ->
+                val columnList = chunkedItems[colIndex]
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.width(68.dp)
+                ) {
+                    columnList.forEach { item ->
+                        when (item) {
+                            is DesktopItem.SystemItem -> {
+                                DesktopIcon(item.emoji, item.label) {
+                                    item.onClick()
+                                }
                             }
-                    ) {
-                        Image(
-                            painter = rememberDrawablePainter(app.icon),
-                            contentDescription = app.label,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = app.label,
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                            is DesktopItem.AppItem -> {
+                                DesktopAppIcon(item.app) {
+                                    activeWindows = openOrFocusWindow(activeWindows, item.app)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2179,13 +2250,20 @@ fun AirViewWindowMode(
                                     it.copy(size = DpSize(newW, newH))
                                 } else it
                             }
+                        },
+                        onFolderNavigate = { folderName ->
+                            activeWindows = activeWindows.map {
+                                if (it.id == window.id) {
+                                    it.copy(currentFolder = folderName)
+                                } else it
+                            }
                         }
                     )
                 }
             }
         }
 
-        // Windows-like Taskbar at the bottom
+        // Windows 11-like Centered Taskbar at the bottom
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -2197,57 +2275,92 @@ fun AirViewWindowMode(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Start Button + Search icon + Pinned/Running Apps
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Start Button
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.3f) else Color.Transparent)
-                            .clickable { startMenuOpen = !startMenuOpen }
-                            .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Taskbar center panel (Windows 11 Layout)
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("🪟", fontSize = 22.sp)
-                    }
+                        // Start Button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.2f) else Color.Transparent)
+                                .clickable { startMenuOpen = !startMenuOpen }
+                                .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🪟", fontSize = 20.sp)
+                        }
 
-                    // Taskbar search button
-                    IconButton(
-                        onClick = {
-                            startMenuOpen = true
-                            startSearchQuery = ""
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.7f))
-                    }
+                        // Search Button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    startMenuOpen = true
+                                    startSearchQuery = ""
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Search, "Search", tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
 
-                    // Divider
-                    Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.1f)))
+                        // Web Browser
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+                                    activeWindows = activeWindows + WindowInfo(
+                                        app = null,
+                                        type = "BROWSER",
+                                        zIndex = maxZ + 1f
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🌐", fontSize = 20.sp)
+                        }
 
-                    // Running app windows in taskbar
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Explorer
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+                                    activeWindows = activeWindows + WindowInfo(
+                                        app = null,
+                                        type = "EXPLORER",
+                                        zIndex = maxZ + 1f
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("📁", fontSize = 20.sp)
+                        }
+
+                        // Divider
+                        Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.2f)))
+
+                        // Running tasks
                         activeWindows.forEach { win ->
                             val isFocused = activeWindows.maxByOrNull { it.zIndex }?.id == win.id && !win.isMinimized
                             Box(
                                 modifier = Modifier
-                                    .height(44.dp)
-                                    .width(60.dp)
+                                    .size(40.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isFocused) Color.White.copy(alpha = 0.1f)
-                                        else Color.White.copy(alpha = 0.03f)
-                                    )
+                                    .background(if (isFocused) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                    .border(1.dp, if (isFocused) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp))
                                     .clickable {
-                                        // Toggle minimize/restore
                                         val current = activeWindows.toMutableList()
                                         val idx = current.indexOfFirst { it.id == win.id }
                                         if (idx != -1) {
@@ -2263,83 +2376,73 @@ fun AirViewWindowMode(
                                             }
                                             activeWindows = current
                                         }
-                                    }
-                                    .border(
-                                        1.dp,
-                                        if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.05f),
-                                        RoundedCornerShape(8.dp)
-                                    ),
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                     if (win.type == "BROWSER") {
                                         Text("🌐", fontSize = 16.sp)
+                                    } else if (win.type == "EXPLORER") {
+                                        Text("📁", fontSize = 16.sp)
                                     } else if (win.app != null) {
                                         Image(
                                             painter = rememberDrawablePainter(win.app.icon),
                                             contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    // Small bar underneath to show active
-                                    Box(
-                                        modifier = Modifier
-                                            .width(16.dp)
-                                            .height(2.dp)
-                                            .background(if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.4f))
-                                    )
+                                    Box(modifier = Modifier.width(12.dp).height(2.dp).background(if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.4f)))
                                 }
                             }
                         }
                     }
-                }
 
-                // Right: System Tray (Clock)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(end = 4.dp)
-                ) {
-                    val systemTime = remember { mutableStateOf("") }
-                    LaunchedEffect(Unit) {
-                        while(true) {
-                            val now = java.util.Calendar.getInstance()
-                            systemTime.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
-                            kotlinx.coroutines.delay(1000)
+                    // System tray clock & tray items
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val systemTime = remember { mutableStateOf("") }
+                        LaunchedEffect(Unit) {
+                            while(true) {
+                                val now = java.util.Calendar.getInstance()
+                                systemTime.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
+                                kotlinx.coroutines.delay(1000)
+                            }
                         }
+
+                        Text("📶", fontSize = 11.sp)
+                        Text("🔋 ⚡", fontSize = 11.sp, color = Color(0xFF66E08F))
+                        Text(
+                            text = systemTime.value,
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
-
-                    Text(
-                        text = "⚡",
-                        fontSize = 11.sp,
-                        color = Color(0xFF66E08F)
-                    )
-
-                    Text(
-                        text = systemTime.value,
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
             }
         }
 
-        // Start Menu Overlay (Windows-like Start Menu)
+        // Start Menu Overlay (Windows 11 Styled floating bottom menu)
         if (startMenuOpen) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 12.dp, bottom = 68.dp)
-                    .width(320.dp)
-                    .height(440.dp)
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 68.dp)
+                    .width(360.dp)
+                    .height(460.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xFA110E21))
                     .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {}) // Prevent dismiss when tapping inside
+                    }
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Start Search
+                    // Search box
                     OutlinedTextField(
                         value = startSearchQuery,
                         onValueChange = { startSearchQuery = it },
@@ -2360,31 +2463,27 @@ fun AirViewWindowMode(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Main Start Menu Area: left bar (sidebar) + right list (apps)
+                    Text("All Programs", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        // Left sidebar of Start Menu (Quick Actions)
+                        // Quick icons sidebar (Avatar, settings, power)
                         Column(
                             modifier = Modifier
-                                .width(56.dp)
+                                .width(48.dp)
                                 .fillMaxHeight()
                                 .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(8.dp))
                                 .padding(vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // Avatar
                             Text("👤", fontSize = 18.sp)
-
                             Spacer(modifier = Modifier.weight(1f))
-
-                            // Settings
                             IconButton(onClick = {
                                 onSettingsOpen()
                                 startMenuOpen = false
                             }) {
                                 Icon(Icons.Filled.Settings, "Settings", tint = Color.White.copy(alpha = 0.6f))
                             }
-                            // Lock screen
                             IconButton(onClick = {
                                 onLockScreenTrigger()
                                 startMenuOpen = false
@@ -2395,7 +2494,7 @@ fun AirViewWindowMode(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Right list (All Apps)
+                        // Grid of all programs
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             if (filteredApps.isEmpty()) {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -2403,7 +2502,7 @@ fun AirViewWindowMode(
                                 }
                             } else {
                                 androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2418,14 +2517,14 @@ fun AirViewWindowMode(
                                                     activeWindows = openOrFocusWindow(activeWindows, app)
                                                     startMenuOpen = false
                                                 }
-                                                .padding(6.dp)
+                                                .padding(4.dp)
                                         ) {
                                             Image(
                                                 painter = rememberDrawablePainter(app.icon),
                                                 contentDescription = null,
-                                                modifier = Modifier.size(32.dp)
+                                                modifier = Modifier.size(28.dp)
                                             )
-                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Spacer(modifier = Modifier.height(2.dp))
                                             Text(
                                                 text = app.label,
                                                 color = Color.White,
@@ -2453,7 +2552,8 @@ fun FloatingWindow(
     onMaximizeToggle: () -> Unit,
     onClose: () -> Unit,
     onDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
-    onResize: (androidx.compose.ui.geometry.Offset) -> Unit
+    onResize: (androidx.compose.ui.geometry.Offset) -> Unit,
+    onFolderNavigate: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -2516,6 +2616,14 @@ fun FloatingWindow(
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                        } else if (window.type == "EXPLORER") {
+                            Text("📁", fontSize = 14.sp)
+                            Text(
+                                text = "File Explorer - ${window.currentFolder}",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         } else if (window.app != null) {
                             Image(
                                 painter = rememberDrawablePainter(window.app.icon),
@@ -2533,7 +2641,7 @@ fun FloatingWindow(
                         }
                     }
 
-                    // Min, Max, Close Buttons
+                    // Windows-like Min, Max, Close Buttons
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -2652,6 +2760,136 @@ fun FloatingWindow(
                                 modifier = Modifier.weight(1f).fillMaxWidth()
                             )
                         }
+                    } else if (window.type == "EXPLORER") {
+                        // Simulated File Explorer
+                        Row(modifier = Modifier.fillMaxSize()) {
+                            // Sidebar list
+                            Column(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .fillMaxHeight()
+                                    .background(Color.White.copy(alpha = 0.02f))
+                                    .padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                SidebarItem("💻", "This PC", window.currentFolder == "This PC") {
+                                    onFolderNavigate("This PC")
+                                }
+                                SidebarItem("⬇️", "Downloads", window.currentFolder == "Downloads") {
+                                    onFolderNavigate("Downloads")
+                                }
+                                SidebarItem("📁", "Docs", window.currentFolder == "Documents") {
+                                    onFolderNavigate("Documents")
+                                }
+                                SidebarItem("🖼️", "Pictures", window.currentFolder == "Pictures") {
+                                    onFolderNavigate("Pictures")
+                                }
+                                SidebarItem("🎵", "Music", window.currentFolder == "Music") {
+                                    onFolderNavigate("Music")
+                                }
+                                SidebarItem("🎥", "Videos", window.currentFolder == "Videos") {
+                                    onFolderNavigate("Videos")
+                                }
+                            }
+
+                            // Explorer Main Directory grid
+                            Column(modifier = Modifier.weight(1f).padding(8.dp)) {
+                                // Toolbar: Back arrow + Address bar
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = { onFolderNavigate("This PC") },
+                                        enabled = window.currentFolder != "This PC",
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("↑", color = if (window.currentFolder != "This PC") Color.White else Color.White.copy(alpha = 0.2f), fontSize = 14.sp)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("This PC > ${window.currentFolder}", color = Color.White.copy(alpha = 0.8f), fontSize = 9.sp)
+                                    }
+                                }
+
+                                if (window.currentFolder == "This PC") {
+                                    // Local folders on This PC
+                                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        item { ExplorerFolderItem("📁", "Documents") { onFolderNavigate("Documents") } }
+                                        item { ExplorerFolderItem("⬇️", "Downloads") { onFolderNavigate("Downloads") } }
+                                        item { ExplorerFolderItem("🖼️", "Pictures") { onFolderNavigate("Pictures") } }
+                                        item { ExplorerFolderItem("🎵", "Music") { onFolderNavigate("Music") } }
+                                        item { ExplorerFolderItem("🎥", "Videos") { onFolderNavigate("Videos") } }
+                                        item { ExplorerFolderItem("🖴", "Local Disk (C:)") { onFolderNavigate("Documents") } }
+                                    }
+                                } else {
+                                    // Query files from MediaStore depending on selected folder
+                                    val files = remember(window.currentFolder) {
+                                        when (window.currentFolder) {
+                                            "Pictures" -> getMediaStoreFiles(context, FileType.IMAGE)
+                                            "Music" -> getMediaStoreFiles(context, FileType.AUDIO)
+                                            "Videos" -> getMediaStoreFiles(context, FileType.VIDEO)
+                                            "Documents" -> getMediaStoreFiles(context, FileType.DOCUMENT)
+                                            "Downloads" -> getMediaStoreFiles(context, FileType.DOCUMENT)
+                                            else -> emptyList()
+                                        }
+                                    }
+
+                                    if (files.isEmpty()) {
+                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Text("Folder is empty", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                                        }
+                                    } else {
+                                        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                                            modifier = Modifier.fillMaxSize(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(files.size) { index ->
+                                                val file = files[index]
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .clickable {
+                                                            FileSearch.openFile(context, file)
+                                                        }
+                                                        .padding(4.dp)
+                                                ) {
+                                                    val fileEmoji = when (file.type) {
+                                                        FileType.IMAGE -> "🖼️"
+                                                        FileType.VIDEO -> "🎥"
+                                                        FileType.AUDIO -> "🎵"
+                                                        FileType.DOCUMENT -> "📄"
+                                                    }
+                                                    Text(fileEmoji, fontSize = 24.sp)
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = file.name,
+                                                        color = Color.White,
+                                                        fontSize = 9.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } else if (window.app != null) {
                         Box(
                             modifier = Modifier
@@ -2718,6 +2956,48 @@ fun FloatingWindow(
 }
 
 @Composable
+fun SidebarItem(
+    emoji: String,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+            .clickable { onClick() }
+            .padding(vertical = 6.dp)
+    ) {
+        Text(emoji, fontSize = 16.sp)
+        Text(label, color = if (isSelected) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.6f), fontSize = 8.sp)
+    }
+}
+
+@Composable
+fun ExplorerFolderItem(
+    emoji: String,
+    name: String,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.White.copy(alpha = 0.03f))
+            .clickable { onClick() }
+            .padding(8.dp)
+    ) {
+        Text(emoji, fontSize = 20.sp)
+        Text(name, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
 fun DesktopIcon(
     emoji: String,
     label: String,
@@ -2733,18 +3013,56 @@ fun DesktopIcon(
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(44.dp)
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text(emoji, fontSize = 24.sp)
+            Text(emoji, fontSize = 22.sp)
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             color = Color.White,
-            fontSize = 10.sp,
+            fontSize = 9.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun DesktopAppIcon(
+    app: AppInfo,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = rememberDrawablePainter(app.icon),
+                contentDescription = null,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = app.label,
+            color = Color.White,
+            fontSize = 9.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
