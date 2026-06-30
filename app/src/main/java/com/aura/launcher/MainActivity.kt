@@ -57,6 +57,10 @@ import android.net.Uri
 import android.provider.MediaStore
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -288,6 +292,7 @@ fun AuraHomeScreen(
             AirViewWindowMode(
                 apps = apps,
                 favorites = favorites,
+                useSystemWallpaper = useSystemWallpaperState,
                 onSettingsOpen = {
                     openSettingsOnDrawerOpen = true
                     drawerOpen.value = true
@@ -2082,6 +2087,7 @@ fun getMediaStoreFiles(context: Context, type: FileType): List<FileResult> {
 fun AirViewWindowMode(
     apps: List<AppInfo>,
     favorites: List<AppInfo>,
+    useSystemWallpaper: Boolean,
     onSettingsOpen: () -> Unit,
     onLockScreenTrigger: () -> Unit
 ) {
@@ -2158,13 +2164,23 @@ fun AirViewWindowMode(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF0A0718),
-                        Color(0xFF140F2E),
-                        Color(0xFF0A0718)
+                if (useSystemWallpaper) {
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = 0.45f),
+                            Color.Black.copy(alpha = 0.20f),
+                            Color.Black.copy(alpha = 0.45f)
+                        )
                     )
-                )
+                } else {
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0xFF0F0B25),
+                            Color(0xFF1B0F3A),
+                            Color(0xFF0A071A)
+                        )
+                    )
+                }
             )
             .pointerInput(Unit) {
                 detectTapGestures(onTap = {
@@ -2207,8 +2223,10 @@ fun AirViewWindowMode(
         activeWindows.forEach { window ->
             if (!window.isMinimized) {
                 key(window.id) {
+                    val isFocused = activeWindows.maxByOrNull { it.zIndex }?.id == window.id
                     FloatingWindow(
                         window = window,
+                        isFocused = isFocused,
                         onFocus = {
                             val current = activeWindows.toMutableList()
                             val idx = current.indexOfFirst { it.id == window.id }
@@ -2263,14 +2281,14 @@ fun AirViewWindowMode(
             }
         }
 
-        // Windows 11-like Centered Taskbar at the bottom
+        // Windows 11-like Centered Taskbar at the bottom (Glassmorphic look)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .height(60.dp)
-                .background(Color(0xE60D0B18))
-                .border(1.dp, Color.White.copy(alpha = 0.08f))
+                .background(Color(0xD90D0B18))
+                .border(1.dp, Color.White.copy(alpha = 0.12f))
         ) {
             Row(
                 modifier = Modifier
@@ -2290,7 +2308,7 @@ fun AirViewWindowMode(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.2f) else Color.Transparent)
+                                .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.25f) else Color.Transparent)
                                 .clickable { startMenuOpen = !startMenuOpen }
                                 .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
@@ -2358,7 +2376,7 @@ fun AirViewWindowMode(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isFocused) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                    .background(if (isFocused) Color.White.copy(alpha = 0.12f) else Color.Transparent)
                                     .border(1.dp, if (isFocused) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp))
                                     .clickable {
                                         val current = activeWindows.toMutableList()
@@ -2426,17 +2444,22 @@ fun AirViewWindowMode(
             }
         }
 
-        // Start Menu Overlay (Windows 11 Styled floating bottom menu)
-        if (startMenuOpen) {
+        // Start Menu Overlay (Windows 11 Styled floating bottom menu) with smooth slide animation
+        AnimatedVisibility(
+            visible = startMenuOpen,
+            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 68.dp)
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 68.dp)
                     .width(360.dp)
                     .height(460.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFA110E21))
-                    .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                    .background(Color(0xF2110E21))
+                    .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                     .pointerInput(Unit) {
                         detectTapGestures(onTap = {}) // Prevent dismiss when tapping inside
                     }
@@ -2547,6 +2570,7 @@ fun AirViewWindowMode(
 @Composable
 fun FloatingWindow(
     window: WindowInfo,
+    isFocused: Boolean,
     onFocus: () -> Unit,
     onMinimize: () -> Unit,
     onMaximizeToggle: () -> Unit,
@@ -2572,10 +2596,17 @@ fun FloatingWindow(
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xF2161426)),
-        shape = if (window.isMaximized) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xF7161426)),
+        shape = if (window.isMaximized) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.2.dp,
+            color = if (isFocused) Color(0xFF9D86FF) else Color(0xFF6C4DF6).copy(alpha = 0.4f)
+        ),
         modifier = modifier
+            .shadow(
+                elevation = if (isFocused) 16.dp else 4.dp,
+                shape = if (window.isMaximized) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp)
+            )
             .pointerInput(Unit) {
                 detectTapGestures(onPress = { onFocus() })
             }
@@ -2583,12 +2614,12 @@ fun FloatingWindow(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Title bar
+                // Title bar (Windows-like layout with glass header)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp)
-                        .background(Color(0xFF221F38))
+                        .height(38.dp)
+                        .background(Color(0xE6201C35))
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { onFocus() },
@@ -2600,7 +2631,7 @@ fun FloatingWindow(
                                 }
                             )
                         }
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -2641,23 +2672,35 @@ fun FloatingWindow(
                         }
                     }
 
-                    // Windows-like Min, Max, Close Buttons
+                    // Windows-like Min, Max, Close Buttons (Fluent style)
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Minimize
-                        IconButton(onClick = onMinimize, modifier = Modifier.size(24.dp)) {
-                            Text("—", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
-                        // Maximize
-                        IconButton(onClick = onMaximizeToggle, modifier = Modifier.size(24.dp)) {
-                            Text(if (window.isMaximized) "🗗" else "🗖", color = Color.White, fontSize = 9.sp)
-                        }
-                        // Close
-                        IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
-                            Text("✕", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                        // Minimize (Yellow dot style)
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFC107))
+                                .clickable { onMinimize() }
+                        )
+                        // Maximize (Green dot style)
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF26A69A))
+                                .clickable { onMaximizeToggle() }
+                        )
+                        // Close (Red dot style)
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFF5252))
+                                .clickable { onClose() }
+                        )
                     }
                 }
 
@@ -2666,32 +2709,43 @@ fun FloatingWindow(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .background(Color(0xFF0F0C1E))
+                        .background(Color(0xFF0A0718))
                 ) {
                     if (window.type == "BROWSER") {
                         Column(modifier = Modifier.fillMaxSize()) {
                             var urlInput by remember { mutableStateOf(window.currentUrl) }
                             var webViewInstance by remember { mutableStateOf<android.webkit.WebView?>(null) }
+                            var isLoading by remember { mutableStateOf(false) }
 
                             // Address bar row
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color(0xFF1E173C))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    .background(Color(0xFF1B1736))
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Back Button
-                                IconButton(
-                                    onClick = {
-                                        webViewInstance?.let {
-                                            if (it.canGoBack()) it.goBack()
-                                        }
-                                    },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Text("←", color = Color.White, fontSize = 14.sp)
+                                // Navigation Buttons
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    IconButton(
+                                        onClick = { webViewInstance?.let { if (it.canGoBack()) it.goBack() } },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("←", color = Color.White, fontSize = 14.sp)
+                                    }
+                                    IconButton(
+                                        onClick = { webViewInstance?.let { if (it.canGoForward()) it.goForward() } },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("→", color = Color.White, fontSize = 14.sp)
+                                    }
+                                    IconButton(
+                                        onClick = { webViewInstance?.reload() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("↻", color = Color.White, fontSize = 12.sp)
+                                    }
                                 }
 
                                 // URL text field
@@ -2715,12 +2769,12 @@ fun FloatingWindow(
                                     textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 11.sp),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
                                 )
 
                                 // Go Button
-                                IconButton(
+                                Button(
                                     onClick = {
                                         var formattedUrl = urlInput.trim()
                                         if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
@@ -2730,17 +2784,41 @@ fun FloatingWindow(
                                         window.currentUrl = formattedUrl
                                         webViewInstance?.loadUrl(formattedUrl)
                                     },
-                                    modifier = Modifier.size(24.dp)
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                                    shape = RoundedCornerShape(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    modifier = Modifier.height(26.dp)
                                 ) {
-                                    Text("Go", color = Color(0xFF9D86FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("Go", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
+                            }
+
+                            // Dynamic Linear Progress Loader
+                            if (isLoading) {
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                                    color = Color(0xFF9D86FF),
+                                    trackColor = Color.Transparent
+                                )
+                            } else {
+                                Box(modifier = Modifier.fillMaxWidth().height(2.dp).background(Color.White.copy(alpha = 0.05f)))
                             }
 
                             // WebView area
                             AndroidView(
                                 factory = { ctx ->
                                     android.webkit.WebView(ctx).apply {
-                                        webViewClient = android.webkit.WebViewClient()
+                                        webViewClient = object : android.webkit.WebViewClient() {
+                                            override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                                                super.onPageStarted(view, url, favicon)
+                                                isLoading = true
+                                                if (url != null) urlInput = url
+                                            }
+                                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                                                super.onPageFinished(view, url)
+                                                isLoading = false
+                                            }
+                                        }
                                         settings.apply {
                                             javaScriptEnabled = true
                                             domStorageEnabled = true
@@ -2819,7 +2897,7 @@ fun FloatingWindow(
                                 }
 
                                 if (window.currentFolder == "This PC") {
-                                    // Local folders on This PC
+                                    // Local folders on This PC with premium style
                                     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                                         columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
@@ -2827,11 +2905,11 @@ fun FloatingWindow(
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
                                         item { ExplorerFolderItem("📁", "Documents") { onFolderNavigate("Documents") } }
-                                        item { ExplorerFolderItem("⬇️", "Downloads") { onFolderNavigate("Downloads") } }
+                                        item { ExplorerFolderItem("📥", "Downloads") { onFolderNavigate("Downloads") } }
                                         item { ExplorerFolderItem("🖼️", "Pictures") { onFolderNavigate("Pictures") } }
                                         item { ExplorerFolderItem("🎵", "Music") { onFolderNavigate("Music") } }
-                                        item { ExplorerFolderItem("🎥", "Videos") { onFolderNavigate("Videos") } }
-                                        item { ExplorerFolderItem("🖴", "Local Disk (C:)") { onFolderNavigate("Documents") } }
+                                        item { ExplorerFolderItem("🎬", "Videos") { onFolderNavigate("Videos") } }
+                                        item { ExplorerFolderItem("💾", "Local Disk (C:)") { onFolderNavigate("Documents") } }
                                     }
                                 } else {
                                     // Query files from MediaStore depending on selected folder
@@ -2863,14 +2941,15 @@ fun FloatingWindow(
                                                     horizontalAlignment = Alignment.CenterHorizontally,
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(8.dp))
+                                                        .background(Color.White.copy(alpha = 0.02f))
                                                         .clickable {
                                                             FileSearch.openFile(context, file)
                                                         }
-                                                        .padding(4.dp)
+                                                        .padding(6.dp)
                                                 ) {
                                                     val fileEmoji = when (file.type) {
                                                         FileType.IMAGE -> "🖼️"
-                                                        FileType.VIDEO -> "🎥"
+                                                        FileType.VIDEO -> "🎬"
                                                         FileType.AUDIO -> "🎵"
                                                         FileType.DOCUMENT -> "📄"
                                                     }
@@ -2948,7 +3027,7 @@ fun FloatingWindow(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("◢", color = Color.White.copy(alpha = 0.3f), fontSize = 12.sp)
+                    Text("◢", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
                 }
             }
         }
@@ -2967,12 +3046,13 @@ fun SidebarItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+            .background(if (isSelected) Color.White.copy(alpha = 0.08f) else Color.Transparent)
             .clickable { onClick() }
-            .padding(vertical = 6.dp)
+            .padding(vertical = 8.dp)
     ) {
-        Text(emoji, fontSize = 16.sp)
-        Text(label, color = if (isSelected) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.6f), fontSize = 8.sp)
+        Text(emoji, fontSize = 18.sp)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(label, color = if (isSelected) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.6f), fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -2987,13 +3067,14 @@ fun ExplorerFolderItem(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.White.copy(alpha = 0.03f))
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White.copy(alpha = 0.04f))
             .clickable { onClick() }
-            .padding(8.dp)
+            .padding(10.dp)
+            .border(1.dp, Color.White.copy(alpha = 0.03f), RoundedCornerShape(10.dp))
     ) {
-        Text(emoji, fontSize = 20.sp)
-        Text(name, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Text(emoji, fontSize = 22.sp)
+        Text(name, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -3023,9 +3104,17 @@ fun DesktopIcon(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            color = Color.White,
-            fontSize = 9.sp,
-            maxLines = 1,
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.85f),
+                    offset = Offset(2f, 2f),
+                    blurRadius = 6f
+                )
+            ),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
@@ -3061,9 +3150,17 @@ fun DesktopAppIcon(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = app.label,
-            color = Color.White,
-            fontSize = 9.sp,
-            maxLines = 1,
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.85f),
+                    offset = Offset(2f, 2f),
+                    blurRadius = 6f
+                )
+            ),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
