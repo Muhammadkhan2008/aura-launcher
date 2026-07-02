@@ -1,8 +1,10 @@
 package com.aura.launcher
 
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -55,6 +57,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.viewinterop.AndroidView
 import android.net.Uri
 import android.provider.MediaStore
+import android.provider.Settings
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.shadow
@@ -85,6 +88,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Bypass FileUriExposedException on Android 7.0+
+        val builder = android.os.StrictMode.VmPolicy.Builder()
+        android.os.StrictMode.setVmPolicy(builder.build())
 
         // EDGE-TO-EDGE: Status bar aur navigation bar transparent banayein
         setupEdgeToEdge()
@@ -297,7 +304,8 @@ fun AuraHomeScreen(
                     openSettingsOnDrawerOpen = true
                     drawerOpen.value = true
                 },
-                onLockScreenTrigger = { lockScreenOpen = true }
+                onLockScreenTrigger = { lockScreenOpen = true },
+                onOpenDrawer = { drawerOpen.value = true }
             )
         } else {
             Box(
@@ -2031,7 +2039,8 @@ data class WindowInfo(
     var zIndex: Float = 0f,
     val initialUrl: String = "https://google.com",
     var currentUrl: String = initialUrl,
-    var currentFolder: String = "This PC"
+    var currentFolder: String = "This PC",
+    var currentPath: String = ""
 )
 
 sealed class DesktopItem {
@@ -2039,48 +2048,72 @@ sealed class DesktopItem {
     data class AppItem(val app: AppInfo) : DesktopItem()
 }
 
-fun getMediaStoreFiles(context: Context, type: FileType): List<FileResult> {
-    val results = mutableListOf<FileResult>()
-    val baseUri = when (type) {
-        FileType.IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        FileType.VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        FileType.AUDIO -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        FileType.DOCUMENT -> MediaStore.Files.getContentUri("external")
+fun checkStoragePermission(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        context.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
     }
+}
 
-    val projection = arrayOf(
-        MediaStore.MediaColumns._ID,
-        MediaStore.MediaColumns.DISPLAY_NAME,
-        MediaStore.MediaColumns.MIME_TYPE
-    )
-
-    val selection = when (type) {
-        FileType.DOCUMENT -> "${MediaStore.MediaColumns.MIME_TYPE} = ? OR ${MediaStore.MediaColumns.MIME_TYPE} = ?"
-        else -> null
-    }
-    val selectionArgs = when (type) {
-        FileType.DOCUMENT -> arrayOf("application/pdf", "text/plain")
-        else -> null
-    }
-
+fun requestStoragePermission(context: Context) {
     runCatching {
-        context.contentResolver.query(
-            baseUri, projection, selection, selectionArgs,
-            "${MediaStore.MediaColumns.DATE_MODIFIED} DESC LIMIT 30"
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idCol)
-                val name = cursor.getString(nameCol) ?: continue
-                val mime = cursor.getString(mimeCol) ?: "application/octet-stream"
-                val uri = Uri.withAppendedPath(baseUri, id.toString())
-                results.add(FileResult(name, uri, mime, type))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            context.startActivity(intent)
+        } else {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
         }
     }
-    return results
+}
+
+fun getMimeType(file: java.io.File): String {
+    val ext = file.extension.lowercase()
+    return when (ext) {
+        "jpg", "jpeg", "png", "webp", "gif" -> "image/*"
+        "mp4", "mkv", "3gp", "webm" -> "video/*"
+        "mp3", "wav", "ogg", "aac", "flac" -> "audio/*"
+        "pdf" -> "application/pdf"
+        "txt", "html", "xml", "json", "md" -> "text/plain"
+        "apk" -> "application/vnd.android.package-archive"
+        else -> "*/*"
+    }
+}
+
+fun getFileEmoji(file: java.io.File): String {
+    val ext = file.extension.lowercase()
+    return when (ext) {
+        "jpg", "jpeg", "png", "webp", "gif" -> "🖼️"
+        "mp4", "mkv", "3gp", "webm" -> "🎬"
+        "mp3", "wav", "ogg", "aac", "flac" -> "🎵"
+        "pdf" -> "📕"
+        "txt", "html", "xml", "json", "md" -> "📝"
+        "apk" -> "🤖"
+        "zip", "rar", "7z", "tar", "gz" -> "📦"
+        "doc", "docx", "xls", "xlsx", "ppt", "pptx" -> "📄"
+        else -> "📄"
+    }
+}
+
+fun openActualFile(context: Context, file: java.io.File) {
+    runCatching {
+        val uri = Uri.fromFile(file)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, getMimeType(file))
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }.onFailure {
+        android.widget.Toast.makeText(context, "Cannot open file: no compatible app found", android.widget.Toast.LENGTH_SHORT).show()
+    }
 }
 
 @Composable
@@ -2089,7 +2122,8 @@ fun AirViewWindowMode(
     favorites: List<AppInfo>,
     useSystemWallpaper: Boolean,
     onSettingsOpen: () -> Unit,
-    onLockScreenTrigger: () -> Unit
+    onLockScreenTrigger: () -> Unit,
+    onOpenDrawer: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
@@ -2106,6 +2140,8 @@ fun AirViewWindowMode(
     // Combine system desktop shortcuts and user apps in a Windows Desktop style
     val desktopItems = remember(apps) {
         val list = mutableListOf<DesktopItem>()
+        val storageRoot = Environment.getExternalStorageDirectory().absolutePath
+
         // User Folder
         list.add(DesktopItem.SystemItem("user", "User Profile", "📁") {
             val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
@@ -2113,6 +2149,7 @@ fun AirViewWindowMode(
                 app = null,
                 type = "EXPLORER",
                 currentFolder = "Documents",
+                currentPath = "$storageRoot/Documents",
                 zIndex = maxZ + 1f
             )
         })
@@ -2123,6 +2160,7 @@ fun AirViewWindowMode(
                 app = null,
                 type = "EXPLORER",
                 currentFolder = "This PC",
+                currentPath = storageRoot,
                 zIndex = maxZ + 1f
             )
         })
@@ -2186,6 +2224,13 @@ fun AirViewWindowMode(
                 detectTapGestures(onTap = {
                     startMenuOpen = false
                 })
+            }
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount ->
+                    if (dragAmount < -25) {
+                        onOpenDrawer()
+                    }
+                }
             }
     ) {
         // Horizontally scrolling columns of desktop icons
@@ -2269,10 +2314,10 @@ fun AirViewWindowMode(
                                 } else it
                             }
                         },
-                        onFolderNavigate = { folderName ->
+                        onFolderNavigate = { folderName, pathName ->
                             activeWindows = activeWindows.map {
                                 if (it.id == window.id) {
-                                    it.copy(currentFolder = folderName)
+                                    it.copy(currentFolder = folderName, currentPath = pathName)
                                 } else it
                             }
                         }
@@ -2355,9 +2400,12 @@ fun AirViewWindowMode(
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+                                    val storageRoot = Environment.getExternalStorageDirectory().absolutePath
                                     activeWindows = activeWindows + WindowInfo(
                                         app = null,
                                         type = "EXPLORER",
+                                        currentFolder = "This PC",
+                                        currentPath = storageRoot,
                                         zIndex = maxZ + 1f
                                     )
                                 },
@@ -2577,7 +2625,7 @@ fun FloatingWindow(
     onClose: () -> Unit,
     onDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
     onResize: (androidx.compose.ui.geometry.Offset) -> Unit,
-    onFolderNavigate: (String) -> Unit = {}
+    onFolderNavigate: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
 
@@ -2839,129 +2887,184 @@ fun FloatingWindow(
                             )
                         }
                     } else if (window.type == "EXPLORER") {
-                        // Simulated File Explorer
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            // Sidebar list
-                            Column(
-                                modifier = Modifier
-                                    .width(80.dp)
-                                    .fillMaxHeight()
-                                    .background(Color.White.copy(alpha = 0.02f))
-                                    .padding(vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                SidebarItem("💻", "This PC", window.currentFolder == "This PC") {
-                                    onFolderNavigate("This PC")
+                        val hasStoragePerm = checkStoragePermission(context)
+                        if (!hasStoragePerm) {
+                            // Permission Prompt View
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(24.dp)
+                                ) {
+                                    Text("📁", fontSize = 48.sp)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "Storage Access Required",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "To browse and open files on your device like a real PC, Aura needs All Files Access permission.",
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 11.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { requestStoragePermission(context) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Grant Permission", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
-                                SidebarItem("⬇️", "Downloads", window.currentFolder == "Downloads") {
-                                    onFolderNavigate("Downloads")
-                                }
-                                SidebarItem("📁", "Docs", window.currentFolder == "Documents") {
-                                    onFolderNavigate("Documents")
-                                }
-                                SidebarItem("🖼️", "Pictures", window.currentFolder == "Pictures") {
-                                    onFolderNavigate("Pictures")
-                                }
-                                SidebarItem("🎵", "Music", window.currentFolder == "Music") {
-                                    onFolderNavigate("Music")
-                                }
-                                SidebarItem("🎥", "Videos", window.currentFolder == "Videos") {
-                                    onFolderNavigate("Videos")
+                            }
+                        } else {
+                            val storageRoot = Environment.getExternalStorageDirectory().absolutePath
+                            // Initialize currentPath if empty
+                            LaunchedEffect(window.currentPath) {
+                                if (window.currentPath.isEmpty()) {
+                                    onFolderNavigate("This PC", storageRoot)
                                 }
                             }
 
-                            // Explorer Main Directory grid
-                            Column(modifier = Modifier.weight(1f).padding(8.dp)) {
-                                // Toolbar: Back arrow + Address bar
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                // Sidebar list
+                                Column(
+                                    modifier = Modifier
+                                        .width(80.dp)
+                                        .fillMaxHeight()
+                                        .background(Color.White.copy(alpha = 0.02f))
+                                        .padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    IconButton(
-                                        onClick = { onFolderNavigate("This PC") },
-                                        enabled = window.currentFolder != "This PC",
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Text("↑", color = if (window.currentFolder != "This PC") Color.White else Color.White.copy(alpha = 0.2f), fontSize = 14.sp)
+                                    SidebarItem("💻", "This PC", window.currentFolder == "This PC") {
+                                        onFolderNavigate("This PC", storageRoot)
                                     }
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text("This PC > ${window.currentFolder}", color = Color.White.copy(alpha = 0.8f), fontSize = 9.sp)
+                                    SidebarItem("⬇️", "Downloads", window.currentFolder == "Downloads") {
+                                        onFolderNavigate("Downloads", "$storageRoot/Download")
+                                    }
+                                    SidebarItem("📁", "Docs", window.currentFolder == "Documents") {
+                                        onFolderNavigate("Documents", "$storageRoot/Documents")
+                                    }
+                                    SidebarItem("🖼️", "Pictures", window.currentFolder == "Pictures") {
+                                        onFolderNavigate("Pictures", "$storageRoot/Pictures")
+                                    }
+                                    SidebarItem("🎵", "Music", window.currentFolder == "Music") {
+                                        onFolderNavigate("Music", "$storageRoot/Music")
+                                    }
+                                    SidebarItem("🎥", "Videos", window.currentFolder == "Videos") {
+                                        onFolderNavigate("Videos", "$storageRoot/Movies")
                                     }
                                 }
 
-                                if (window.currentFolder == "This PC") {
-                                    // Local folders on This PC with premium style
-                                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
-                                        modifier = Modifier.fillMaxSize(),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                // Explorer Main Directory grid
+                                Column(modifier = Modifier.weight(1f).padding(8.dp)) {
+                                    // Toolbar: Back arrow + Address bar
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                                     ) {
-                                        item { ExplorerFolderItem("📁", "Documents") { onFolderNavigate("Documents") } }
-                                        item { ExplorerFolderItem("📥", "Downloads") { onFolderNavigate("Downloads") } }
-                                        item { ExplorerFolderItem("🖼️", "Pictures") { onFolderNavigate("Pictures") } }
-                                        item { ExplorerFolderItem("🎵", "Music") { onFolderNavigate("Music") } }
-                                        item { ExplorerFolderItem("🎬", "Videos") { onFolderNavigate("Videos") } }
-                                        item { ExplorerFolderItem("💾", "Local Disk (C:)") { onFolderNavigate("Documents") } }
-                                    }
-                                } else {
-                                    // Query files from MediaStore depending on selected folder
-                                    val files = remember(window.currentFolder) {
-                                        when (window.currentFolder) {
-                                            "Pictures" -> getMediaStoreFiles(context, FileType.IMAGE)
-                                            "Music" -> getMediaStoreFiles(context, FileType.AUDIO)
-                                            "Videos" -> getMediaStoreFiles(context, FileType.VIDEO)
-                                            "Documents" -> getMediaStoreFiles(context, FileType.DOCUMENT)
-                                            "Downloads" -> getMediaStoreFiles(context, FileType.DOCUMENT)
-                                            else -> emptyList()
+                                        val canGoUp = window.currentFolder != "This PC" && window.currentPath != storageRoot
+                                        IconButton(
+                                            onClick = {
+                                                val currentDir = java.io.File(window.currentPath)
+                                                val parent = currentDir.parentFile
+                                                if (parent != null && parent.absolutePath.startsWith(storageRoot)) {
+                                                    onFolderNavigate(parent.name, parent.absolutePath)
+                                                } else {
+                                                    onFolderNavigate("This PC", storageRoot)
+                                                }
+                                            },
+                                            enabled = canGoUp,
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Text("↑", color = if (canGoUp) Color.White else Color.White.copy(alpha = 0.2f), fontSize = 14.sp)
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            val displayPath = if (window.currentFolder == "This PC") "This PC" else window.currentPath.replace(storageRoot, "This PC")
+                                            Text(displayPath, color = Color.White.copy(alpha = 0.8f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
 
-                                    if (files.isEmpty()) {
-                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                            Text("Folder is empty", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
-                                        }
-                                    } else {
+                                    if (window.currentFolder == "This PC") {
+                                        // Local folders on This PC with premium style
                                         androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                                             columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
                                             modifier = Modifier.fillMaxSize(),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            items(files.size) { index ->
-                                                val file = files[index]
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color.White.copy(alpha = 0.02f))
-                                                        .clickable {
-                                                            FileSearch.openFile(context, file)
-                                                        }
-                                                        .padding(6.dp)
-                                                ) {
-                                                    val fileEmoji = when (file.type) {
-                                                        FileType.IMAGE -> "🖼️"
-                                                        FileType.VIDEO -> "🎬"
-                                                        FileType.AUDIO -> "🎵"
-                                                        FileType.DOCUMENT -> "📄"
+                                            item { ExplorerFolderItem("📁", "Documents") { onFolderNavigate("Documents", "$storageRoot/Documents") } }
+                                            item { ExplorerFolderItem("📥", "Downloads") { onFolderNavigate("Downloads", "$storageRoot/Download") } }
+                                            item { ExplorerFolderItem("🖼️", "Pictures") { onFolderNavigate("Pictures", "$storageRoot/Pictures") } }
+                                            item { ExplorerFolderItem("🎵", "Music") { onFolderNavigate("Music", "$storageRoot/Music") } }
+                                            item { ExplorerFolderItem("🎬", "Videos") { onFolderNavigate("Videos", "$storageRoot/Movies") } }
+                                            item { ExplorerFolderItem("💾", "Local Disk (C:)") { onFolderNavigate("Local Disk (C:)", storageRoot) } }
+                                        }
+                                    } else {
+                                        // Query actual folders and files on local storage
+                                        val filesList = remember(window.currentPath) {
+                                            runCatching {
+                                                if (window.currentPath.isEmpty()) emptyList()
+                                                else {
+                                                    val dir = java.io.File(window.currentPath)
+                                                    if (!dir.exists()) dir.mkdirs()
+                                                    dir.listFiles()?.filter { !it.name.startsWith(".") }?.sortedWith(
+                                                        compareBy<java.io.File> { !it.isDirectory }.thenBy { it.name.lowercase() }
+                                                    ) ?: emptyList()
+                                                }
+                                            }.getOrDefault(emptyList())
+                                        }
+
+                                        if (filesList.isEmpty()) {
+                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                Text("Folder is empty", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                                            }
+                                        } else {
+                                            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                                columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                                                modifier = Modifier.fillMaxSize(),
+                                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                items(filesList.size) { index ->
+                                                    val file = filesList[index]
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(Color.White.copy(alpha = 0.02f))
+                                                            .clickable {
+                                                                if (file.isDirectory) {
+                                                                    onFolderNavigate(file.name, file.absolutePath)
+                                                                } else {
+                                                                    openActualFile(context, file)
+                                                                }
+                                                            }
+                                                            .padding(6.dp)
+                                                    ) {
+                                                        val emoji = if (file.isDirectory) "📁" else getFileEmoji(file)
+                                                        Text(emoji, fontSize = 28.sp)
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = file.name,
+                                                            color = Color.White,
+                                                            fontSize = 9.sp,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                        )
                                                     }
-                                                    Text(fileEmoji, fontSize = 24.sp)
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Text(
-                                                        text = file.name,
-                                                        color = Color.White,
-                                                        fontSize = 9.sp,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
                                                 }
                                             }
                                         }
