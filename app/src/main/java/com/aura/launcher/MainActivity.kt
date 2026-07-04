@@ -2134,6 +2134,10 @@ fun AirViewWindowMode(
     var startMenuOpen by remember { mutableStateOf(false) }
     // Start menu search query
     var startSearchQuery by remember { mutableStateOf("") }
+    // Quick settings center open state
+    var quickSettingsOpen by remember { mutableStateOf(false) }
+    // Desktop long-press context menu position
+    var contextMenuPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
 
     val density = LocalDensity.current
 
@@ -2221,9 +2225,16 @@ fun AirViewWindowMode(
                 }
             )
             .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    startMenuOpen = false
-                })
+                detectTapGestures(
+                    onTap = {
+                        startMenuOpen = false
+                        quickSettingsOpen = false
+                        contextMenuPosition = null
+                    },
+                    onLongPress = {
+                        contextMenuPosition = it
+                    }
+                )
             }
             .pointerInput(Unit) {
                 detectVerticalDragGestures { _, dragAmount ->
@@ -2237,7 +2248,7 @@ fun AirViewWindowMode(
         LazyRow(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 40.dp, start = 16.dp, end = 16.dp, bottom = 80.dp),
+                .padding(top = 40.dp, start = 16.dp, end = 180.dp, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             items(chunkedItems.size) { colIndex ->
@@ -2466,7 +2477,13 @@ fun AirViewWindowMode(
 
                     // System tray clock & tray items
                     Row(
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (quickSettingsOpen) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+                            .clickable { quickSettingsOpen = !quickSettingsOpen }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -2608,6 +2625,212 @@ fun AirViewWindowMode(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // --- PREMIUM RIGHT SIDE WIDGETS ---
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 60.dp, end = 24.dp)
+                .width(140.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Clock & Weather Widget
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0x660D0B18)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val systemTimeStr = remember { mutableStateOf("") }
+                    val systemDateStr = remember { mutableStateOf("") }
+                    LaunchedEffect(Unit) {
+                        while(true) {
+                            val now = java.util.Calendar.getInstance()
+                            systemTimeStr.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
+                            systemDateStr.value = android.text.format.DateFormat.getMediumDateFormat(context).format(now.time)
+                            kotlinx.coroutines.delay(1000)
+                        }
+                    }
+                    Text(
+                        text = systemTimeStr.value,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = systemDateStr.value,
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("☀️ 29°C", color = Color(0xFFFFD54F), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Sunny • Porto", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+                }
+            }
+
+            // Calendar / Agenda Widget
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0x660D0B18)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = "Agenda",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    AgendaItem("🏋️", "Gym", "10:00 AM")
+                    AgendaItem("🍔", "Lunch", "1:00 PM")
+                    AgendaItem("🎨", "Sync", "3:30 PM")
+                }
+            }
+        }
+
+        // --- QUICK SETTINGS / ACTION CENTER FLYOUT ---
+        AnimatedVisibility(
+            visible = quickSettingsOpen,
+            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 68.dp, end = 12.dp)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xF2110E21)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .width(260.dp)
+                    .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                    .pointerInput(Unit) { detectTapGestures {} }
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Quick Settings",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    var wifiActive by remember { mutableStateOf(true) }
+                    var btActive by remember { mutableStateOf(false) }
+                    var airplaneActive by remember { mutableStateOf(false) }
+                    var flashActive by remember { mutableStateOf(false) }
+                    var dndActive by remember { mutableStateOf(false) }
+                    var saverActive by remember { mutableStateOf(true) }
+
+                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                        modifier = Modifier.fillMaxWidth().height(110.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item { QuickToggle("📶", "Wi-Fi", wifiActive) { wifiActive = !wifiActive } }
+                        item { QuickToggle("🔵", "Bluetooth", btActive) { btActive = !btActive } }
+                        item { QuickToggle("✈️", "Airplane", airplaneActive) { airplaneActive = !airplaneActive } }
+                        item { QuickToggle("💡", "Flash", flashActive) { flashActive = !flashActive } }
+                        item { QuickToggle("🌙", "DND", dndActive) { dndActive = !dndActive } }
+                        item { QuickToggle("🔋", "Saver", saverActive) { saverActive = !saverActive } }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Volume Slider
+                    var volumeVal by remember { mutableStateOf(0.7f) }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🔊", fontSize = 12.sp)
+                        Slider(
+                            value = volumeVal,
+                            onValueChange = { volumeVal = it },
+                            modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFF9D86FF),
+                                activeTrackColor = Color(0xFF6C4DF6)
+                            )
+                        )
+                    }
+
+                    // Brightness Slider
+                    var brightnessVal by remember { mutableStateOf(0.6f) }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("☀️", fontSize = 12.sp)
+                        Slider(
+                            value = brightnessVal,
+                            onValueChange = { brightnessVal = it },
+                            modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFF9D86FF),
+                                activeTrackColor = Color(0xFF6C4DF6)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- DESKTOP CONTEXT MENU (LONG PRESS) ---
+        if (contextMenuPosition != null) {
+            val offset = contextMenuPosition!!
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xF7161426)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .offset(
+                        x = with(LocalDensity.current) { offset.x.toDp() },
+                        y = with(LocalDensity.current) { offset.y.toDp() }
+                    )
+                    .width(180.dp)
+                    .border(1.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                    .shadow(12.dp, RoundedCornerShape(12.dp))
+                    .pointerInput(Unit) { detectTapGestures {} }
+            ) {
+                Column(modifier = Modifier.padding(6.dp)) {
+                    ContextMenuItem("🔄 Refresh Desktop") {
+                        contextMenuPosition = null
+                        android.widget.Toast.makeText(context, "Desktop refreshed ✓", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    ContextMenuItem("🖼️ Open Control Panel") {
+                        contextMenuPosition = null
+                        onSettingsOpen()
+                    }
+                    ContextMenuItem("📱 Toggle Wallpaper") {
+                        contextMenuPosition = null
+                        prefs.useSystemWallpaper = !prefs.useSystemWallpaper
+                        onSettingsOpen()
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 4.dp))
+                    ContextMenuItem("❌ Close Menu") {
+                        contextMenuPosition = null
                     }
                 }
             }
@@ -3291,6 +3514,57 @@ fun openOrFocusWindow(currentList: List<WindowInfo>, app: AppInfo): List<WindowI
         )
     }
     return list
+}
+
+@Composable
+fun AgendaItem(emoji: String, title: String, time: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+    ) {
+        Text(emoji, fontSize = 11.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(time, color = Color.White.copy(alpha = 0.5f), fontSize = 8.sp)
+        }
+    }
+}
+
+@Composable
+fun QuickToggle(
+    emoji: String,
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isActive) Color(0xFF6C4DF6).copy(alpha = 0.3f) else Color.White.copy(alpha = 0.04f))
+            .border(1.dp, if (isActive) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(vertical = 6.dp)
+    ) {
+        Text(emoji, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(label, color = if (isActive) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.6f), fontSize = 8.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun ContextMenuItem(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    }
 }
 
 
