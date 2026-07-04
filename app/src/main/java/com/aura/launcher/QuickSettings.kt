@@ -3,6 +3,7 @@ package com.aura.launcher
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.util.Log
 
 /**
  * QuickSettings — system quick settings (WiFi, Bluetooth, etc.) khol de.
@@ -20,7 +21,9 @@ object QuickSettings {
                 val intent = Intent(Settings.ACTION_SETTINGS)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 context.startActivity(intent)
-            } catch (_: Exception) { }
+            } catch (ex: Exception) {
+                Log.e("QuickSettings", "Failed to open quick settings and fallback", ex)
+            }
         }
     }
 }
