@@ -13,6 +13,7 @@ android {
         targetSdk 34       // Android 14
         versionCode 1
         versionName "0.1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -36,6 +37,10 @@ android {
     }
     composeOptions {
         kotlinCompilerExtensionVersion '1.5.10'
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
     }
 }
 
@@ -61,4 +66,9 @@ dependencies {
 
     // HorizontalPager — multiple home pages swipe left/right
     implementation 'androidx.compose.foundation:foundation'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.1'
+    testImplementation 'org.mockito:mockito-core:5.10.0'
 }
