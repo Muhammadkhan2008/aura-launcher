@@ -62,3 +62,10 @@ dependencies {
     // HorizontalPager — multiple home pages swipe left/right
     implementation 'androidx.compose.foundation:foundation'
 }
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20231013'
+    testImplementation "org.mockito:mockito-core:5.11.0"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:5.2.1"
+}
