@@ -16,8 +16,6 @@ import org.json.JSONObject
  */
 object BackupManager {
 
-    const val FILE_NAME = "aura_backup.json"
-
     /** Current setup ko JSON string mein badlo. */
     fun exportToJson(context: Context): String {
         val prefs = AuraPrefs(context)
