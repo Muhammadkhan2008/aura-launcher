@@ -3,6 +3,12 @@ package com.aura.launcher
 import android.content.Context
 import org.json.JSONObject
 import java.util.Calendar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * AppUsageTracker — Aura ka apna ON-DEVICE smart prediction engine.
@@ -22,6 +28,9 @@ object AppUsageTracker {
     private const val PREFS = "aura_usage"
     private const val KEY_DATA = "usage_data"
 
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mutex = Mutex()
+
     // Din ko 4 slots mein baant te hain
     private fun currentSlot(): Int {
         val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -33,39 +42,43 @@ object AppUsageTracker {
         }
     }
 
-    private fun load(context: Context): JSONObject {
+    private suspend fun load(context: Context): JSONObject = kotlinx.coroutines.withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val raw = prefs.getString(KEY_DATA, "{}") ?: "{}"
-        return runCatching { JSONObject(raw) }.getOrDefault(JSONObject())
+        runCatching { JSONObject(raw) }.getOrDefault(JSONObject())
     }
 
-    private fun save(context: Context, data: JSONObject) {
+    private suspend fun save(context: Context, data: JSONObject) = kotlinx.coroutines.withContext(Dispatchers.IO) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_DATA, data.toString()).apply()
     }
 
     /** App khulne pe call hota hai — count badhao. */
     fun recordOpen(context: Context, packageName: String) {
-        val data = load(context)
-        val slot = currentSlot()
-        // structure: { "pkg": { "total": n, "slots": [a,b,c,d] } }
-        val appObj = data.optJSONObject(packageName) ?: JSONObject().apply {
-            put("total", 0)
-            put("slots", org.json.JSONArray(intArrayOf(0, 0, 0, 0)))
+        scope.launch {
+            mutex.withLock {
+                val data = load(context)
+                val slot = currentSlot()
+                // structure: { "pkg": { "total": n, "slots": [a,b,c,d] } }
+                val appObj = data.optJSONObject(packageName) ?: JSONObject().apply {
+                    put("total", 0)
+                    put("slots", org.json.JSONArray(intArrayOf(0, 0, 0, 0)))
+                }
+                appObj.put("total", appObj.optInt("total") + 1)
+                val slots = appObj.optJSONArray("slots") ?: org.json.JSONArray(intArrayOf(0, 0, 0, 0))
+                slots.put(slot, slots.optInt(slot) + 1)
+                appObj.put("slots", slots)
+                data.put(packageName, appObj)
+                save(context, data)
+            }
         }
-        appObj.put("total", appObj.optInt("total") + 1)
-        val slots = appObj.optJSONArray("slots") ?: org.json.JSONArray(intArrayOf(0, 0, 0, 0))
-        slots.put(slot, slots.optInt(slot) + 1)
-        appObj.put("slots", slots)
-        data.put(packageName, appObj)
-        save(context, data)
     }
 
     /**
      * Predict: is waqt user kaunsi apps kholta hai (top N).
      * Score = (is slot ki frequency * 2) + total frequency.
      */
-    fun getPredictedApps(context: Context, allApps: List<AppInfo>, limit: Int = 6): List<AppInfo> {
+    suspend fun getPredictedApps(context: Context, allApps: List<AppInfo>, limit: Int = 6): List<AppInfo> {
         val data = load(context)
         val slot = currentSlot()
         if (data.length() == 0) return emptyList()
