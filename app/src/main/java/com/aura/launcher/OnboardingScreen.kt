@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -176,7 +177,7 @@ fun WelcomeStep(onNext: () -> Unit) {
         Button(
             onClick = onNext,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
@@ -230,7 +231,7 @@ fun GridStep(
                     modifier = Modifier
                         .weight(1f)
                         .height(72.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(MaterialTheme.shapes.medium)
                         .background(
                             if (selectedColumns == col) Color(0xFF6C4DF6).copy(alpha = 0.3f)
                             else Color.White.copy(alpha = 0.05f)
@@ -238,7 +239,7 @@ fun GridStep(
                         .border(
                             width = 2.dp,
                             color = if (selectedColumns == col) Color(0xFF9D86FF) else Color.Transparent,
-                            shape = RoundedCornerShape(16.dp)
+                            shape = MaterialTheme.shapes.medium
                         )
                         .clickable { selectedColumns = col },
                     contentAlignment = Alignment.Center
@@ -265,7 +266,7 @@ fun GridStep(
         // Grid Columns Live Preview Mockup
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp)
@@ -319,7 +320,7 @@ fun GridStep(
         ) {
             OutlinedButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp),
@@ -334,7 +335,7 @@ fun GridStep(
                     onNext()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp)
@@ -385,7 +386,7 @@ fun AiStep(
             placeholder = { Text("gsk_...", color = Color.White.copy(alpha = 0.4f)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
@@ -411,7 +412,7 @@ fun AiStep(
         ) {
             OutlinedButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp),
@@ -426,7 +427,7 @@ fun AiStep(
                     onNext()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp)
@@ -545,7 +546,7 @@ fun PermissionsStep(
         ) {
             OutlinedButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp),
@@ -557,7 +558,7 @@ fun PermissionsStep(
             Button(
                 onClick = onNext,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp)
@@ -579,9 +580,9 @@ fun PermissionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(Color.White.copy(alpha = 0.04f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), MaterialTheme.shapes.medium)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -691,7 +692,7 @@ fun FinishStep(
             Button(
                 onClick = { LauncherActions.requestSetDefault(context) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
@@ -701,7 +702,7 @@ fun FinishStep(
         } else {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF66E08F).copy(alpha = 0.15f)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
@@ -730,7 +731,7 @@ fun FinishStep(
         ) {
             OutlinedButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp),
@@ -742,7 +743,7 @@ fun FinishStep(
             Button(
                 onClick = onComplete,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9D86FF)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp)
@@ -874,7 +875,7 @@ fun PlanStep(
         ) {
             OutlinedButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp),
@@ -889,7 +890,7 @@ fun PlanStep(
                     onNext()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .weight(1f)
                     .height(50.dp)
