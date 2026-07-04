@@ -3042,7 +3042,9 @@ fun FloatingWindow(
                                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                                         onGo = {
                                             var formattedUrl = urlInput.trim()
-                                            if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+                                            if (formattedUrl.startsWith("http://")) {
+                                                formattedUrl = "https://" + formattedUrl.substring(7)
+                                            } else if (!formattedUrl.startsWith("https://")) {
                                                 formattedUrl = "https://$formattedUrl"
                                             }
                                             urlInput = formattedUrl
@@ -3061,7 +3063,9 @@ fun FloatingWindow(
                                 Button(
                                     onClick = {
                                         var formattedUrl = urlInput.trim()
-                                        if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+                                        if (formattedUrl.startsWith("http://")) {
+                                            formattedUrl = "https://" + formattedUrl.substring(7)
+                                        } else if (!formattedUrl.startsWith("https://")) {
                                             formattedUrl = "https://$formattedUrl"
                                         }
                                         urlInput = formattedUrl
