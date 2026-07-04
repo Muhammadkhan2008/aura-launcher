@@ -112,7 +112,7 @@ fun OnboardingScreen(
                         .size(if (currentStep == i) 12.dp else 8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (currentStep == i) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.3f)
+                            if (currentStep == i) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f)
                         )
                 )
             }
@@ -137,10 +137,10 @@ fun WelcomeStep(onNext: () -> Unit) {
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF9D86FF), Color(0xFF6C4DF6), Color.Transparent)
+                        colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary, Color.Transparent)
                     )
                 )
-                .border(2.dp, Color(0xFF9D86FF), CircleShape),
+                .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -175,7 +175,7 @@ fun WelcomeStep(onNext: () -> Unit) {
 
         Button(
             onClick = onNext,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -232,12 +232,12 @@ fun GridStep(
                         .height(72.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(
-                            if (selectedColumns == col) Color(0xFF6C4DF6).copy(alpha = 0.3f)
+                            if (selectedColumns == col) MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
                             else Color.White.copy(alpha = 0.05f)
                         )
                         .border(
                             width = 2.dp,
-                            color = if (selectedColumns == col) Color(0xFF9D86FF) else Color.Transparent,
+                            color = if (selectedColumns == col) MaterialTheme.colorScheme.primary else Color.Transparent,
                             shape = RoundedCornerShape(16.dp)
                         )
                         .clickable { selectedColumns = col },
@@ -276,7 +276,7 @@ fun GridStep(
             ) {
                 Text(
                     "Layout Preview ($selectedColumns Columns)",
-                    color = Color(0xFF9D86FF),
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -333,7 +333,7 @@ fun GridStep(
                     prefs.gridColumns = selectedColumns
                     onNext()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -389,7 +389,7 @@ fun AiStep(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
-                focusedBorderColor = Color(0xFF9D86FF),
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
             )
         )
@@ -425,7 +425,7 @@ fun AiStep(
                     prefs.groqApiKey = keyText
                     onNext()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -556,7 +556,7 @@ fun PermissionsStep(
 
             Button(
                 onClick = onNext,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -589,10 +589,10 @@ fun PermissionRow(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF6C4DF6).copy(alpha = 0.2f)),
+                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = icon, contentDescription = title, tint = Color(0xFF9D86FF))
+            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary)
         }
 
         Spacer(Modifier.width(16.dp))
@@ -617,7 +617,7 @@ fun PermissionRow(
         } else {
             Button(
                 onClick = onRequest,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 modifier = Modifier.height(32.dp)
@@ -690,7 +690,7 @@ fun FinishStep(
         if (!isDefault) {
             Button(
                 onClick = { LauncherActions.requestSetDefault(context) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -741,7 +741,7 @@ fun FinishStep(
 
             Button(
                 onClick = onComplete,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9D86FF)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -791,7 +791,7 @@ fun PlanStep(
         // Plan 1: Free Plan Card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = if (!selectedPro) Color(0xFF6C4DF6).copy(alpha = 0.15f)
+                containerColor = if (!selectedPro) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                 else Color.White.copy(alpha = 0.04f)
             ),
             shape = RoundedCornerShape(20.dp),
@@ -799,7 +799,7 @@ fun PlanStep(
                 .fillMaxWidth()
                 .border(
                     width = 2.dp,
-                    color = if (!selectedPro) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
+                    color = if (!selectedPro) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(20.dp)
                 )
                 .clickable { selectedPro = false }
@@ -825,7 +825,7 @@ fun PlanStep(
         // Plan 2: Pro Plan Card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = if (selectedPro) Color(0xFF6C4DF6).copy(alpha = 0.15f)
+                containerColor = if (selectedPro) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                 else Color.White.copy(alpha = 0.04f)
             ),
             shape = RoundedCornerShape(20.dp),
@@ -833,7 +833,7 @@ fun PlanStep(
                 .fillMaxWidth()
                 .border(
                     width = 2.dp,
-                    color = if (selectedPro) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
+                    color = if (selectedPro) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(20.dp)
                 )
                 .clickable { selectedPro = true }
@@ -888,7 +888,7 @@ fun PlanStep(
                     prefs.isPro = selectedPro
                     onNext()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
