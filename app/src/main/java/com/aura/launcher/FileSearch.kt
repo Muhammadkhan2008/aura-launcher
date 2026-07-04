@@ -102,6 +102,11 @@ object FileSearch {
 
     /** File ko uski default app mein kholo. */
     fun openFile(context: Context, file: FileResult) {
+        // Security Fix: Prevent intent injection by validating the URI
+        if (file.uri.scheme != "content" || file.uri.authority != MediaStore.AUTHORITY) {
+            return
+        }
+
         runCatching {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(file.uri, file.mimeType)
