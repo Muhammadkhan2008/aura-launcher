@@ -99,7 +99,9 @@ object AppRepository {
             context.startActivity(intent)
             Log.d(TAG, "Opened store: ${app.packageName}")
             return
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            Log.w(TAG, "Method3 failed: ${app.packageName} — ${e.message}")
+        }
 
         // Sab fail
         Toast.makeText(context, "${app.label} nahi khul rahi", Toast.LENGTH_SHORT).show()
@@ -116,7 +118,9 @@ object AppRepository {
                 context.startActivity(launchIntent)
                 AppUsageTracker.recordOpen(context, packageName)
                 return
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                Log.w(TAG, "Launch failed directly: $packageName — ${e.message}")
+            }
         }
         // Fallback: allApps list se dhundho
         val app = allApps.find { it.packageName == packageName }
