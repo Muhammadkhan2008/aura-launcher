@@ -10,7 +10,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * WeatherWidget — Open-Meteo se weather laata hai (bilkul free, koi API key nahi).
@@ -21,7 +20,6 @@ fun WeatherWidget(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var weather by remember { mutableStateOf<Weather?>(null) }
     var loading by remember { mutableStateOf(true) }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         while (true) {
