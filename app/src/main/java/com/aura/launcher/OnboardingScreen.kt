@@ -1,7 +1,6 @@
 package com.aura.launcher
 
 import android.Manifest
-import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
