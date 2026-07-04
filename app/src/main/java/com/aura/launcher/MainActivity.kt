@@ -305,7 +305,8 @@ fun AuraHomeScreen(
                     drawerOpen.value = true
                 },
                 onLockScreenTrigger = { lockScreenOpen = true },
-                onOpenDrawer = { drawerOpen.value = true }
+                onOpenDrawer = { drawerOpen.value = true },
+                onMultitaskerOpen = { multitaskerOpen = true }
             )
         } else {
             Box(
@@ -2123,7 +2124,8 @@ fun AirViewWindowMode(
     useSystemWallpaper: Boolean,
     onSettingsOpen: () -> Unit,
     onLockScreenTrigger: () -> Unit,
-    onOpenDrawer: () -> Unit
+    onOpenDrawer: () -> Unit,
+    onMultitaskerOpen: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { AuraPrefs(context) }
@@ -2384,6 +2386,17 @@ fun AirViewWindowMode(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Filled.Search, "Search", tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+
+                        // Task View (Recents/Multitasker) Button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onMultitaskerOpen() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("📋", fontSize = 20.sp)
                         }
 
                         // Web Browser
