@@ -45,10 +45,11 @@ object BackupManager {
             val favs = root.optJSONArray("favorites")
             if (favs != null) {
                 // purane favourites hata ke naye daalo
-                prefs.getFavorites().forEach { prefs.removeFavorite(it) }
+                val newFavorites = mutableListOf<String>()
                 for (i in 0 until favs.length()) {
-                    prefs.addFavorite(favs.getString(i))
+                    newFavorites.add(favs.getString(i))
                 }
+                prefs.setFavorites(newFavorites)
             }
             true
         }.getOrDefault(false)

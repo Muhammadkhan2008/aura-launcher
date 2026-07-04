@@ -42,6 +42,11 @@ class AuraPrefs(context: Context) {
         saveFavorites(current)
     }
 
+    fun setFavorites(packageNames: List<String>) {
+        val uniqueFavorites = packageNames.distinct().take(5)
+        saveFavorites(uniqueFavorites)
+    }
+
     fun isFavorite(packageName: String): Boolean = getFavorites().contains(packageName)
 
     private fun saveFavorites(list: List<String>) {
