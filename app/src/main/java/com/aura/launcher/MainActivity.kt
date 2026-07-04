@@ -3104,7 +3104,6 @@ fun FloatingWindow(
                                             }
                                         }
                                         settings.apply {
-                                            javaScriptEnabled = true
                                             domStorageEnabled = true
                                             builtInZoomControls = true
                                             displayZoomControls = false
