@@ -89,9 +89,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Bypass FileUriExposedException on Android 7.0+
-        val builder = android.os.StrictMode.VmPolicy.Builder()
-        android.os.StrictMode.setVmPolicy(builder.build())
+        // NOTE: StrictMode VmPolicy left at default (no bypass).
+        // FileProvider should be used instead of file:// URIs.
 
         // EDGE-TO-EDGE: Status bar aur navigation bar transparent banayein
         setupEdgeToEdge()
@@ -1474,7 +1473,8 @@ private fun executeAgenticAction(
         runCatching {
             when (action) {
                 "LAUNCH_APP" -> {
-                    if (param.isNotBlank()) {
+                    // Only launch apps that are actually in the installed list
+                    if (param.isNotBlank() && apps.any { it.packageName == param }) {
                         AppRepository.launchByPackage(context, param, apps)
                         onClose()
                     }
@@ -1507,15 +1507,21 @@ private fun executeAgenticAction(
                 }
                 "CREATE_NOTE" -> {
                     if (param.isNotBlank()) {
+                        // Sanitize: limit content length and use safe filename
+                        val safeContent = param.take(4096)
                         val dir = java.io.File(context.getExternalFilesDir(null), "AuraNotes")
                         if (!dir.exists()) dir.mkdirs()
-                        val file = java.io.File(dir, "note_${System.currentTimeMillis()}.txt")
-                        file.writeText(param)
-                        android.widget.Toast.makeText(
-                            context,
-                            "Note created: ${file.name} ✓",
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
+                        val safeFileName = "note_${System.currentTimeMillis()}.txt"
+                        val file = java.io.File(dir, safeFileName)
+                        // Verify file is within intended directory (prevent path traversal)
+                        if (file.canonicalPath.startsWith(dir.canonicalPath)) {
+                            file.writeText(safeContent)
+                            android.widget.Toast.makeText(
+                                context,
+                                "Note created: ${file.name} ✓",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
             }
@@ -3042,6 +3048,8 @@ fun FloatingWindow(
                                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                                         onGo = {
                                             var formattedUrl = urlInput.trim()
+                                            // Block dangerous schemes
+                                            if (formattedUrl.startsWith("javascript:") || formattedUrl.startsWith("file://")) return@KeyboardActions
                                             if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
                                                 formattedUrl = "https://$formattedUrl"
                                             }
@@ -3061,6 +3069,8 @@ fun FloatingWindow(
                                 Button(
                                     onClick = {
                                         var formattedUrl = urlInput.trim()
+                                        // Block dangerous schemes
+                                        if (formattedUrl.startsWith("javascript:") || formattedUrl.startsWith("file://")) return@Button
                                         if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
                                             formattedUrl = "https://$formattedUrl"
                                         }
@@ -3102,6 +3112,14 @@ fun FloatingWindow(
                                                 super.onPageFinished(view, url)
                                                 isLoading = false
                                             }
+                                            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                                                val loadUrl = request?.url?.toString() ?: return true
+                                                // Block file:// and javascript: schemes
+                                                if (loadUrl.startsWith("file://") || loadUrl.startsWith("javascript:")) {
+                                                    return true
+                                                }
+                                                return false
+                                            }
                                         }
                                         settings.apply {
                                             javaScriptEnabled = true
@@ -3110,7 +3128,10 @@ fun FloatingWindow(
                                             displayZoomControls = false
                                             useWideViewPort = true
                                             loadWithOverviewMode = true
-                                            userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                            // Disable local file access from WebView
+                                            allowFileAccess = false
+                                            allowContentAccess = false
+                                            userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                                         }
                                         loadUrl(window.currentUrl)
                                         webViewInstance = this
