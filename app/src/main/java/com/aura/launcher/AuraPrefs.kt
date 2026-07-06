@@ -2,6 +2,8 @@ package com.aura.launcher
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 /**
  * AuraPrefs — settings aur favourites phone mein save rakhta hai.
@@ -16,6 +18,28 @@ class AuraPrefs(context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("aura_settings", Context.MODE_PRIVATE)
+
+    private val securePrefs: SharedPreferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "aura_secure_settings",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    init {
+        // Migrate existing plain-text API key if present
+        val oldKey = prefs.getString(KEY_GROQ, null)
+        if (oldKey != null) {
+            securePrefs.edit().putString(KEY_GROQ, oldKey).apply()
+            prefs.edit().remove(KEY_GROQ).apply()
+        }
+    }
 
     // ---- App drawer ke columns (3 se 6) ----
     var gridColumns: Int
@@ -50,8 +74,8 @@ class AuraPrefs(context: Context) {
 
     // ---- Groq AI key ----
     var groqApiKey: String
-        get() = prefs.getString(KEY_GROQ, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_GROQ, value.trim()).apply()
+        get() = securePrefs.getString(KEY_GROQ, "") ?: ""
+        set(value) = securePrefs.edit().putString(KEY_GROQ, value.trim()).apply()
 
     fun hasAiKey(): Boolean = groqApiKey.isNotBlank()
 
