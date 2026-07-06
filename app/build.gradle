@@ -37,6 +37,10 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion '1.5.10'
     }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -61,4 +65,10 @@ dependencies {
 
     // HorizontalPager — multiple home pages swipe left/right
     implementation 'androidx.compose.foundation:foundation'
+
+    // Testing dependencies
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'io.mockk:mockk:1.13.9'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
+    testImplementation 'org.json:json:20231013'
 }
