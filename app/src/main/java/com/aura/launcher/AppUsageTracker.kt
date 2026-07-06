@@ -82,9 +82,11 @@ object AppUsageTracker {
             if (score > 0) scores.add(pkg to score)
         }
 
+        val allAppsMap = allApps.associateBy { it.packageName }
+
         return scores
             .sortedByDescending { it.second }
-            .mapNotNull { (pkg, _) -> allApps.find { it.packageName == pkg } }
+            .mapNotNull { (pkg, _) -> allAppsMap[pkg] }
             .take(limit)
     }
 }
