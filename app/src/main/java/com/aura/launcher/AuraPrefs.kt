@@ -2,6 +2,8 @@ package com.aura.launcher
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 /**
  * AuraPrefs — settings aur favourites phone mein save rakhta hai.
@@ -11,11 +13,29 @@ import android.content.SharedPreferences
  * - Grid columns + home pages
  * - Hidden apps
  * - Gesture customization
+ *
+ * Sensitive data (API key) encrypted storage mein jaata hai.
  */
 class AuraPrefs(context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("aura_settings", Context.MODE_PRIVATE)
+
+    private val securePrefs: SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "aura_secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (_: Exception) {
+        // Fallback if device doesn't support encryption (very rare)
+        context.getSharedPreferences("aura_secure_fallback", Context.MODE_PRIVATE)
+    }
 
     // ---- App drawer ke columns (3 se 6) ----
     var gridColumns: Int
@@ -48,10 +68,23 @@ class AuraPrefs(context: Context) {
         prefs.edit().putString(KEY_FAVORITES, list.joinToString("|")).apply()
     }
 
-    // ---- Groq AI key ----
+    // ---- Groq AI key (encrypted storage) ----
     var groqApiKey: String
-        get() = prefs.getString(KEY_GROQ, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_GROQ, value.trim()).apply()
+        get() {
+            // Migrate from old plaintext storage if present
+            val oldKey = prefs.getString(KEY_GROQ, null)
+            if (oldKey != null && oldKey.isNotBlank()) {
+                securePrefs.edit().putString(KEY_GROQ, oldKey).apply()
+                prefs.edit().remove(KEY_GROQ).apply()
+                return oldKey
+            }
+            return securePrefs.getString(KEY_GROQ, "") ?: ""
+        }
+        set(value) {
+            securePrefs.edit().putString(KEY_GROQ, value.trim()).apply()
+            // Remove from plaintext prefs if it was there
+            prefs.edit().remove(KEY_GROQ).apply()
+        }
 
     fun hasAiKey(): Boolean = groqApiKey.isNotBlank()
 

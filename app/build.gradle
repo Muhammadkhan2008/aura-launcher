@@ -17,8 +17,8 @@ android {
 
     buildTypes {
         release {
-            // Abhi debug signing — testing ke liye theek hai
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -58,6 +58,9 @@ dependencies {
 
     // Coroutines — AI calls background thread pe (UI hang na ho)
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // Encrypted storage for sensitive data (API keys)
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
 
     // HorizontalPager — multiple home pages swipe left/right
     implementation 'androidx.compose.foundation:foundation'
