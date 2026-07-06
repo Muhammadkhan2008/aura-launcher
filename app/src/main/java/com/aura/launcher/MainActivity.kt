@@ -2339,10 +2339,70 @@ fun AirViewWindowMode(
             }
         }
 
-        // Windows 11-like Centered Taskbar at the bottom (Glassmorphic look)
+
+        AirViewTaskbar(
+            context = context,
+            activeWindows = activeWindows,
+            startMenuOpen = startMenuOpen,
+            onStartMenuToggle = { startMenuOpen = !startMenuOpen },
+            onStartSearchQueryClear = { startSearchQuery = "" },
+            quickSettingsOpen = quickSettingsOpen,
+            onQuickSettingsToggle = { quickSettingsOpen = !quickSettingsOpen },
+            onMultitaskerOpen = onMultitaskerOpen,
+            onActiveWindowsChange = { activeWindows = it },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
+        AirViewStartMenu(
+            startMenuOpen = startMenuOpen,
+            startSearchQuery = startSearchQuery,
+            onSearchQueryChange = { startSearchQuery = it },
+            filteredApps = filteredApps,
+            onAppClick = { app -> activeWindows = openOrFocusWindow(activeWindows, app) },
+            onSettingsOpen = onSettingsOpen,
+            onLockScreenTrigger = onLockScreenTrigger,
+            onClose = { startMenuOpen = false },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
+        AirViewRightSideWidgets(
+            context = context,
+            modifier = Modifier.align(Alignment.TopEnd)
+        )
+
+        AirViewQuickSettings(
+            quickSettingsOpen = quickSettingsOpen,
+            modifier = Modifier.align(Alignment.BottomEnd)
+        )
+
+        AirViewContextMenu(
+            context = context,
+            contextMenuPosition = contextMenuPosition,
+            onClose = { contextMenuPosition = null },
+            onSettingsOpen = onSettingsOpen,
+            onToggleWallpaper = { prefs.useSystemWallpaper = !prefs.useSystemWallpaper }
+        )
+
+    }
+}
+
+
+@Composable
+private fun AirViewTaskbar(
+    context: android.content.Context,
+    activeWindows: List<WindowInfo>,
+    startMenuOpen: Boolean,
+    onStartMenuToggle: () -> Unit,
+    onStartSearchQueryClear: () -> Unit,
+    quickSettingsOpen: Boolean,
+    onQuickSettingsToggle: () -> Unit,
+    onMultitaskerOpen: () -> Unit,
+    onActiveWindowsChange: (List<WindowInfo>) -> Unit,
+    modifier: Modifier = Modifier
+) {
+// Windows 11-like Centered Taskbar at the bottom (Glassmorphic look)
         Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
+            modifier = modifier
                 .fillMaxWidth()
                 .height(60.dp)
                 .background(Color(0xD90D0B18))
@@ -2367,7 +2427,7 @@ fun AirViewWindowMode(
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.25f) else Color.Transparent)
-                                .clickable { startMenuOpen = !startMenuOpen }
+                                .clickable { onStartMenuToggle() }
                                 .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -2380,8 +2440,8 @@ fun AirViewWindowMode(
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    startMenuOpen = true
-                                    startSearchQuery = ""
+                                    if (!startMenuOpen) onStartMenuToggle()
+                                    onStartSearchQueryClear()
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -2406,11 +2466,11 @@ fun AirViewWindowMode(
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
-                                    activeWindows = activeWindows + WindowInfo(
+                                    onActiveWindowsChange(activeWindows + WindowInfo(
                                         app = null,
                                         type = "BROWSER",
                                         zIndex = maxZ + 1f
-                                    )
+                                    ))
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -2425,13 +2485,13 @@ fun AirViewWindowMode(
                                 .clickable {
                                     val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
                                     val storageRoot = Environment.getExternalStorageDirectory().absolutePath
-                                    activeWindows = activeWindows + WindowInfo(
+                                    onActiveWindowsChange(activeWindows + WindowInfo(
                                         app = null,
                                         type = "EXPLORER",
                                         currentFolder = "This PC",
                                         currentPath = storageRoot,
                                         zIndex = maxZ + 1f
-                                    )
+                                    ))
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -2464,7 +2524,7 @@ fun AirViewWindowMode(
                                                 val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
                                                 current[idx] = w.copy(zIndex = maxZ + 1f)
                                             }
-                                            activeWindows = current
+                                            onActiveWindowsChange(current)
                                         }
                                     },
                                 contentAlignment = Alignment.Center
@@ -2495,7 +2555,7 @@ fun AirViewWindowMode(
                             .padding(end = 8.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (quickSettingsOpen) Color.White.copy(alpha = 0.08f) else Color.Transparent)
-                            .clickable { quickSettingsOpen = !quickSettingsOpen }
+                            .clickable { onQuickSettingsToggle() }
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2522,13 +2582,27 @@ fun AirViewWindowMode(
             }
         }
 
+
+}
+
+@Composable
+private fun AirViewStartMenu(
+    startMenuOpen: Boolean,
+    startSearchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    filteredApps: List<AppInfo>,
+    onAppClick: (AppInfo) -> Unit,
+    onSettingsOpen: () -> Unit,
+    onLockScreenTrigger: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
         // Start Menu Overlay (Windows 11 Styled floating bottom menu) with smooth slide animation
         AnimatedVisibility(
             visible = startMenuOpen,
             enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
+            modifier = modifier
                 .padding(bottom = 68.dp)
         ) {
             Box(
@@ -2546,7 +2620,7 @@ fun AirViewWindowMode(
                     // Search box
                     OutlinedTextField(
                         value = startSearchQuery,
-                        onValueChange = { startSearchQuery = it },
+                        onValueChange = { onSearchQueryChange(it) },
                         placeholder = { Text("Search programs...", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(8.dp),
@@ -2581,13 +2655,13 @@ fun AirViewWindowMode(
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(onClick = {
                                 onSettingsOpen()
-                                startMenuOpen = false
+                                onClose()
                             }) {
                                 Icon(Icons.Filled.Settings, "Settings", tint = Color.White.copy(alpha = 0.6f))
                             }
                             IconButton(onClick = {
                                 onLockScreenTrigger()
-                                startMenuOpen = false
+                                onClose()
                             }) {
                                 Text("🔒", fontSize = 16.sp)
                             }
@@ -2615,8 +2689,8 @@ fun AirViewWindowMode(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .clickable {
-                                                    activeWindows = openOrFocusWindow(activeWindows, app)
-                                                    startMenuOpen = false
+                                                    onAppClick(app)
+                                                    onClose()
                                                 }
                                                 .padding(4.dp)
                                         ) {
@@ -2643,10 +2717,17 @@ fun AirViewWindowMode(
             }
         }
 
-        // --- PREMIUM RIGHT SIDE WIDGETS ---
+
+}
+
+@Composable
+private fun AirViewRightSideWidgets(
+    context: android.content.Context,
+    modifier: Modifier = Modifier
+) {
+                // --- PREMIUM RIGHT SIDE WIDGETS ---
         Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
+            modifier = modifier
                 .padding(top = 60.dp, end = 24.dp)
                 .width(140.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -2721,13 +2802,20 @@ fun AirViewWindowMode(
             }
         }
 
-        // --- QUICK SETTINGS / ACTION CENTER FLYOUT ---
+
+}
+
+@Composable
+private fun AirViewQuickSettings(
+    quickSettingsOpen: Boolean,
+    modifier: Modifier = Modifier
+) {
+                // --- QUICK SETTINGS / ACTION CENTER FLYOUT ---
         AnimatedVisibility(
             visible = quickSettingsOpen,
             enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
+            modifier = modifier
                 .padding(bottom = 68.dp, end = 12.dp)
         ) {
             Card(
@@ -2811,7 +2899,18 @@ fun AirViewWindowMode(
             }
         }
 
-        // --- DESKTOP CONTEXT MENU (LONG PRESS) ---
+
+}
+
+@Composable
+private fun AirViewContextMenu(
+    context: android.content.Context,
+    contextMenuPosition: androidx.compose.ui.geometry.Offset?,
+    onClose: () -> Unit,
+    onSettingsOpen: () -> Unit,
+    onToggleWallpaper: () -> Unit
+) {
+                // --- DESKTOP CONTEXT MENU (LONG PRESS) ---
         if (contextMenuPosition != null) {
             val offset = contextMenuPosition!!
             Card(
@@ -2829,27 +2928,34 @@ fun AirViewWindowMode(
             ) {
                 Column(modifier = Modifier.padding(6.dp)) {
                     ContextMenuItem("🔄 Refresh Desktop") {
-                        contextMenuPosition = null
+                        onClose()
                         android.widget.Toast.makeText(context, "Desktop refreshed ✓", android.widget.Toast.LENGTH_SHORT).show()
                     }
                     ContextMenuItem("🖼️ Open Control Panel") {
-                        contextMenuPosition = null
+                        onClose()
                         onSettingsOpen()
                     }
                     ContextMenuItem("📱 Toggle Wallpaper") {
-                        contextMenuPosition = null
-                        prefs.useSystemWallpaper = !prefs.useSystemWallpaper
+                        onClose()
+                        onToggleWallpaper()
                         onSettingsOpen()
                     }
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 4.dp))
                     ContextMenuItem("❌ Close Menu") {
-                        contextMenuPosition = null
+                        onClose()
                     }
                 }
             }
         }
-    }
 }
+
+
+
+
+
+
+
+
 
 @Composable
 fun FloatingWindow(
