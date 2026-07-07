@@ -157,7 +157,7 @@ object WeatherHelper {
         else -> "—"
     }
 
-    private fun codeToEmoji(c: Int): String = when (c) {
+    internal fun codeToEmoji(c: Int): String = when (c) {
         0 -> "☀️"
         1, 2, 3 -> "⛅"
         45, 48 -> "🌫️"
