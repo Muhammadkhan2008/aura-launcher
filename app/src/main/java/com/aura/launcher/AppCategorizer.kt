@@ -26,6 +26,8 @@ object AppCategorizer {
         OTHER("Other")
     }
 
+    private val categoryCache = java.util.concurrent.ConcurrentHashMap<String, Category>()
+
     // Keyword hints — package name mein ye mile to category guess
     private val keywordMap = mapOf(
         Category.SOCIAL to listOf("facebook", "instagram", "twitter", "snapchat", "tiktok", "linkedin", "reddit", "pinterest", "threads"),
@@ -40,17 +42,28 @@ object AppCategorizer {
 
     /** Ek app ki category nikaalo. */
     fun categoryOf(context: Context, app: AppInfo): Category {
+        categoryCache[app.packageName]?.let { return it }
+
         // 1. Android ka apna category (Android 8+)
         runCatching {
             val ai = context.packageManager.getApplicationInfo(app.packageName, 0)
             val sysCat = systemCategory(ai)
-            if (sysCat != null) return sysCat
+            if (sysCat != null) {
+                categoryCache[app.packageName] = sysCat
+                return sysCat
+            }
         }
+
         // 2. Keyword matching
         val hay = (app.packageName + " " + app.label).lowercase()
         for ((cat, words) in keywordMap) {
-            if (words.any { hay.contains(it) }) return cat
+            if (words.any { hay.contains(it) }) {
+                categoryCache[app.packageName] = cat
+                return cat
+            }
         }
+
+        categoryCache[app.packageName] = Category.OTHER
         return Category.OTHER
     }
 
