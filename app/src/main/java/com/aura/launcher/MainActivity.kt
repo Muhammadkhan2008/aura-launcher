@@ -15,8 +15,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -209,6 +208,8 @@ class MainActivity : ComponentActivity() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.isAppearanceLightStatusBars = false
         controller.isAppearanceLightNavigationBars = false
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }
 
@@ -285,6 +286,7 @@ fun AuraHomeScreen(
     var homeFreezerOpen by remember { mutableStateOf(false) }
     var lockScreenOpen by remember { mutableStateOf(false) }
     var layoutStyleState by remember { mutableStateOf(prefs.layoutStyle) }
+    var animatedWallpaperStyleState by remember { mutableStateOf(prefs.animatedWallpaperStyle) }
 
     val favPkgs = remember(drawerOpen.value) { prefs.getFavorites() }
     val favorites = remember(apps, favPkgs) {
@@ -293,6 +295,7 @@ fun AuraHomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedWallpaper(style = animatedWallpaperStyleState)
 
         // ---- HOME SCREEN ----
         if (layoutStyleState == "WINDOWS") {
@@ -386,7 +389,7 @@ fun AuraHomeScreen(
                     }
 
                     // Middle: suggestions + recents
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = 48.dp)) {
                         if (predicted.isNotEmpty()) {
                             SmartSuggestRow(predicted = predicted) { AppRepository.launchApp(context, it) }
                         }
@@ -435,6 +438,7 @@ fun AuraHomeScreen(
                     gridColumnsState = prefs.gridColumns
                     useSystemWallpaperState = prefs.useSystemWallpaper
                     layoutStyleState = prefs.layoutStyle
+                    animatedWallpaperStyleState = prefs.animatedWallpaperStyle
                     onIconAliasChanged(prefs.activeIconAlias ?: "")
                 },
                 onLockScreenTrigger = { lockScreenOpen = true }
@@ -644,6 +648,35 @@ fun AuraHomeScreen(
         if (lockScreenOpen) {
             AuraLockScreenOverlay(
                 onUnlock = { lockScreenOpen = false }
+            )
+        }
+
+        // Custom Virtual Navigation Bar (Back, Home, Recents)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            VirtualNavigationBar(
+                onBack = {
+                    if (drawerOpen.value) {
+                        drawerOpen.value = false
+                    } else if (multitaskerOpen) {
+                        multitaskerOpen = false
+                    } else if (homeFreezerOpen) {
+                        homeFreezerOpen = false
+                    } else {
+                        (context as? androidx.activity.ComponentActivity)?.onBackPressedDispatcher?.onBackPressed()
+                    }
+                },
+                onHome = {
+                    drawerOpen.value = false
+                    multitaskerOpen = false
+                    homeFreezerOpen = false
+                },
+                onRecents = {
+                    multitaskerOpen = true
+                }
             )
         }
     }
@@ -2343,6 +2376,7 @@ fun AirViewWindowMode(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp)
                 .fillMaxWidth()
                 .height(60.dp)
                 .background(Color(0xD90D0B18))
@@ -3123,7 +3157,19 @@ fun FloatingWindow(
                             )
                         }
                     } else if (window.type == "EXPLORER") {
-                        val hasStoragePerm = checkStoragePermission(context)
+                        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+                        var hasStoragePerm by remember { mutableStateOf(checkStoragePermission(context)) }
+                        DisposableEffect(lifecycleOwner) {
+                            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                                    hasStoragePerm = checkStoragePermission(context)
+                                }
+                            }
+                            lifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose {
+                                lifecycleOwner.lifecycle.removeObserver(observer)
+                            }
+                        }
                         if (!hasStoragePerm) {
                             // Permission Prompt View
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -3577,6 +3623,247 @@ fun ContextMenuItem(text: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun VirtualNavigationBar(
+    onBack: () -> Unit,
+    onHome: () -> Unit,
+    onRecents: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Color(0xE60D0B18))
+            .border(1.dp, Color.White.copy(alpha = 0.05f)),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Back Button
+        IconButton(onClick = onBack) {
+            Text("◀", color = Color.White, fontSize = 16.sp)
+        }
+        // Home Button
+        IconButton(onClick = onHome) {
+            Text("●", color = Color.White, fontSize = 18.sp)
+        }
+        // Recents Button
+        IconButton(onClick = onRecents) {
+            Text("■", color = Color.White, fontSize = 16.sp)
+        }
+    }
+}
+
+@Composable
+fun AnimatedWallpaper(style: Int) {
+    if (style == 0) {
+        return
+    }
+
+    val infiniteTransition = rememberInfiniteTransition()
+    val timeState = infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(60000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    when (style) {
+        1 -> {
+            // Style 1: Particles (Floating Glowing Dust Particles)
+            val particleCount = 25
+            val particles = remember {
+                List(particleCount) {
+                    val px = (0..100).random() / 100f
+                    val py = (0..100).random() / 100f
+                    val speed = (1..3).random() / 500f
+                    val radius = (3..8).random().toFloat()
+                    val alpha = (30..70).random() / 100f
+                    floatArrayOf(px, py, speed, radius, alpha)
+                }
+            }
+
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                val t = timeState.value
+                drawRect(Color(0xFF0C0721))
+
+                particles.forEach { p ->
+                    val x = (p[0] + (t * p[2])) % 1f
+                    val y = (p[1] - (t * p[2] * 0.5f)) % 1f
+                    val finalX = if (x < 0) x + 1f else x
+                    val finalY = if (y < 0) y + 1f else y
+
+                    drawCircle(
+                        color = Color(0xFF9D86FF).copy(alpha = p[4]),
+                        radius = p[3],
+                        center = androidx.compose.ui.geometry.Offset(finalX * size.width, finalY * size.height)
+                    )
+                }
+            }
+        }
+        2 -> {
+            // Style 2: Matrix Code Rain (Cyber Rain)
+            val columnWidth = 30f
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(Color.Black)
+                val t = timeState.value
+                val cols = (size.width / columnWidth).toInt()
+                
+                for (c in 0..cols) {
+                    val x = c * columnWidth
+                    val speed = (5..15).random()
+                    val length = (10..25).random()
+                    
+                    val yHead = ((t * speed) % (size.height + 400f)) - 200f
+                    
+                    for (i in 0..length) {
+                        val yChar = yHead - (i * 15f)
+                        if (yChar in 0f..size.height) {
+                            val alpha = 1f - (i.toFloat() / length)
+                            val isHead = i == 0
+                            drawCircle(
+                                color = if (isHead) Color(0xFFE8F5E9).copy(alpha = alpha) else Color(0xFF2E7D32).copy(alpha = alpha),
+                                radius = if (isHead) 3.5f else 2f,
+                                center = androidx.compose.ui.geometry.Offset(x, yChar)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        3 -> {
+            // Style 3: Organic Plasma Waves (Undulating glowing colors)
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                val t = timeState.value * 0.05f
+                val color1 = Color(0xFF6C4DF6).copy(alpha = 0.8f)
+                val color2 = Color(0xFF1B0F3A)
+                val color3 = Color(0xFF0F0B25)
+
+                drawRect(color3)
+                
+                val center1 = androidx.compose.ui.geometry.Offset(
+                    size.width * 0.5f + (Math.sin(t * 0.5.toDouble()).toFloat() * size.width * 0.3f),
+                    size.height * 0.4f + (Math.cos(t * 0.3.toDouble()).toFloat() * size.height * 0.2f)
+                )
+                val center2 = androidx.compose.ui.geometry.Offset(
+                    size.width * 0.3f + (Math.cos(t * 0.4.toDouble()).toFloat() * size.width * 0.2f),
+                    size.height * 0.7f + (Math.sin(t * 0.6.toDouble()).toFloat() * size.height * 0.3f)
+                )
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(color1, Color.Transparent),
+                        center = center1,
+                        radius = size.width * 0.7f
+                    ),
+                    center = center1,
+                    radius = size.width * 0.7f
+                )
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFF9D86FF).copy(alpha = 0.4f), Color.Transparent),
+                        center = center2,
+                        radius = size.width * 0.6f
+                    ),
+                    center = center2,
+                    radius = size.width * 0.6f
+                )
+            }
+        }
+        4 -> {
+            // Style 4: Cosmic Nebula (Pulsing glowing space dust)
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                val t = timeState.value * 0.02f
+                drawRect(Color(0xFF05020F))
+
+                val nebulaCenter = androidx.compose.ui.geometry.Offset(
+                    size.width * 0.5f + (Math.sin(t.toDouble()).toFloat() * 50f),
+                    size.height * 0.5f + (Math.cos(t * 1.2.toDouble()).toFloat() * 50f)
+                )
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFFD500F9).copy(alpha = 0.25f), Color.Transparent),
+                        center = nebulaCenter,
+                        radius = size.width * 0.9f
+                    ),
+                    center = nebulaCenter,
+                    radius = size.width * 0.9f
+                )
+
+                val coreCenter = androidx.compose.ui.geometry.Offset(
+                    size.width * 0.5f - (Math.cos(t * 0.8.toDouble()).toFloat() * 30f),
+                    size.height * 0.5f - (Math.sin(t * 0.9.toDouble()).toFloat() * 30f)
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFF00E5FF).copy(alpha = 0.35f), Color.Transparent),
+                        center = coreCenter,
+                        radius = size.width * 0.6f
+                    ),
+                    center = coreCenter,
+                    radius = size.width * 0.6f
+                )
+            }
+        }
+        5 -> {
+            // Style 5: Cyber Neon Grid (Moving Synthwave Horizon Grid)
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                val t = timeState.value * 0.8f
+                drawRect(Color(0xFF0A0512))
+
+                val sunCenter = androidx.compose.ui.geometry.Offset(size.width * 0.5f, size.height * 0.5f)
+                drawCircle(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFFFF1744), Color(0xFFFFEA00)),
+                        startY = size.height * 0.3f,
+                        endY = size.height * 0.5f
+                    ),
+                    radius = size.width * 0.2f,
+                    center = sunCenter
+                )
+
+                val horizonY = size.height * 0.5f
+                val lineSpacing = 20f
+                val offset = t % lineSpacing
+                
+                var currentY = horizonY
+                var count = 0
+                while (currentY < size.height) {
+                    val ratio = (currentY - horizonY) / (size.height - horizonY)
+                    val lineY = horizonY + (ratio * ratio * (size.height - horizonY)) + offset
+                    if (lineY in horizonY..size.height) {
+                        drawLine(
+                            color = Color(0xFFE040FB).copy(alpha = ratio * 0.8f),
+                            start = androidx.compose.ui.geometry.Offset(0f, lineY),
+                            end = androidx.compose.ui.geometry.Offset(size.width, lineY),
+                            strokeWidth = 1.5f
+                        )
+                    }
+                    currentY += lineSpacing
+                    count++
+                    if (count > 50) break
+                }
+
+                val colCount = 12
+                for (i in 0..colCount) {
+                    val fraction = i.toFloat() / colCount
+                    val startX = fraction * size.width
+                    val endX = size.width * 0.5f + (fraction - 0.5f) * size.width * 2.5f
+                    drawLine(
+                        color = Color(0xFF00E5FF).copy(alpha = 0.5f),
+                        start = androidx.compose.ui.geometry.Offset(startX, horizonY),
+                        end = androidx.compose.ui.geometry.Offset(endX, size.height),
+                        strokeWidth = 1f
+                    )
+                }
+            }
+        }
     }
 }
 

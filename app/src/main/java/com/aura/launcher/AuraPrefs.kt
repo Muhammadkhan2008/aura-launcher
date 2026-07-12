@@ -126,6 +126,10 @@ class AuraPrefs(context: Context) {
         get() = prefs.getString("layout_style", "STANDARD") ?: "STANDARD"
         set(value) = prefs.edit().putString("layout_style", value).apply()
 
+    var animatedWallpaperStyle: Int
+        get() = prefs.getInt("animated_wallpaper_style", 0)
+        set(value) = prefs.edit().putInt("animated_wallpaper_style", value).apply()
+
     // ---- Frozen apps ---- (freezer mein daale gaye apps)
     fun getFrozenApps(): Set<String> {
         val raw = prefs.getString(KEY_FROZEN, "") ?: ""

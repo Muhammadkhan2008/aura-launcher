@@ -42,6 +42,7 @@ fun SettingsPanel(
     var showIconChangeWarning by remember { mutableStateOf(false) }
     var pendingAliasToSet by remember { mutableStateOf("") }
     var selectedStyle by remember { mutableStateOf(prefs.layoutStyle) }
+    var animatedWpStyle by remember { mutableStateOf(prefs.animatedWallpaperStyle) }
 
     val isDefault = remember { LauncherActions.isDefaultLauncher(context) }
     val hasUsage = remember { RecentApps.hasUsagePermission(context) }
@@ -229,6 +230,61 @@ fun SettingsPanel(
                             Text("🪟 Windows", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Spacer(Modifier.height(4.dp))
                             Text("Air View Window mode", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ---- Animated Wallpapers Section ----
+                Text(
+                    "Animated Wallpaper Style",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    "Choose a beautiful live canvas wallpaper style.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val stylesList = listOf(
+                        0 to "❌ None",
+                        1 to "✨ Stars",
+                        2 to "💾 Matrix",
+                        3 to "🌊 Waves",
+                        4 to "🌌 Nebula",
+                        5 to "🌐 Grid"
+                    )
+                    stylesList.forEach { (index, title) ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (animatedWpStyle == index) Color(0xFF6C4DF6).copy(alpha = 0.25f) else Color.White.copy(alpha = 0.05f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (animatedWpStyle == index) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.1f)
+                            ),
+                            modifier = Modifier
+                                .width(90.dp)
+                                .clickable {
+                                    animatedWpStyle = index
+                                }
+                        ) {
+                            Box(modifier = Modifier.padding(10.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = title,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -578,6 +634,7 @@ fun SettingsPanel(
                         prefs.iconPack = iconPack
                         prefs.useSystemWallpaper = useSysWp
                         prefs.layoutStyle = selectedStyle
+                        prefs.animatedWallpaperStyle = animatedWpStyle
                         onChanged()
                         onClose()
                     }) {
