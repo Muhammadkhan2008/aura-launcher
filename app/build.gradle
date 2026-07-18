@@ -3,6 +3,12 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace 'com.aura.launcher'
     compileSdk 34
@@ -15,9 +21,25 @@ android {
         versionName "0.1.0"
     }
 
+    signingConfigs {
+        release {
+            def storeFilePath = keystoreProperties['storeFile'] ?: System.getenv("RELEASE_STORE_FILE")
+            def storePass = keystoreProperties['storePassword'] ?: System.getenv("RELEASE_STORE_PASSWORD")
+            def keyAli = keystoreProperties['keyAlias'] ?: System.getenv("RELEASE_KEY_ALIAS")
+            def keyPass = keystoreProperties['keyPassword'] ?: System.getenv("RELEASE_KEY_PASSWORD")
+
+            if (storeFilePath && storePass && keyAli && keyPass) {
+                storeFile file(storeFilePath)
+                storePassword storePass
+                keyAlias keyAli
+                keyPassword keyPass
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Abhi debug signing — testing ke liye theek hai
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
