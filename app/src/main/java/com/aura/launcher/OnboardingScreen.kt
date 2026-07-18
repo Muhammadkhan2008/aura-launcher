@@ -629,6 +629,111 @@ fun PermissionRow(
 }
 
 @Composable
+fun SetupCompleteHeader() {
+    Box(
+        modifier = Modifier
+            .size(80.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF66E08F).copy(alpha = 0.2f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Done,
+            contentDescription = "Success",
+            tint = Color(0xFF66E08F),
+            modifier = Modifier.size(48.dp)
+        )
+    }
+
+    Spacer(Modifier.height(28.dp))
+
+    Text(
+        "Setup Complete!",
+        color = Color.White,
+        fontSize = 26.sp,
+        fontWeight = FontWeight.Bold
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    Text(
+        "Aura Launcher is configured and ready to roll. Set it as your home application to complete the experience.",
+        color = Color.White.copy(alpha = 0.7f),
+        fontSize = 14.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = 12.dp)
+    )
+}
+
+@Composable
+fun DefaultLauncherStatusCard(isDefault: Boolean, onRequestDefault: () -> Unit) {
+    if (!isDefault) {
+        Button(
+            onClick = onRequestDefault,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+        ) {
+            Text("Set Aura as Default Launcher", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    } else {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF66E08F).copy(alpha = 0.15f)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.Info, "Default", tint = Color(0xFF66E08F))
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "Aura is currently your default launcher!",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FinishNavigationButtons(onBack: () -> Unit, onComplete: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        OutlinedButton(
+            onClick = onBack,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(50.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+        ) {
+            Text("Back", fontSize = 14.sp)
+        }
+
+        Button(
+            onClick = onComplete,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9D86FF)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(50.dp)
+        ) {
+            Text("Enter Aura", color = Color(0xFF0F0C1E), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 fun FinishStep(
     onBack: () -> Unit,
     onComplete: () -> Unit
@@ -651,105 +756,21 @@ fun FinishStep(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF66E08F).copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Done,
-                contentDescription = "Success",
-                tint = Color(0xFF66E08F),
-                modifier = Modifier.size(48.dp)
-            )
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        Text(
-            "Setup Complete!",
-            color = Color.White,
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            "Aura Launcher is configured and ready to roll. Set it as your home application to complete the experience.",
-            color = Color.White.copy(alpha = 0.7f),
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 12.dp)
-        )
+        SetupCompleteHeader()
 
         Spacer(Modifier.height(36.dp))
 
-        if (!isDefault) {
-            Button(
-                onClick = { LauncherActions.requestSetDefault(context) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C4DF6)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-            ) {
-                Text("Set Aura as Default Launcher", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        } else {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF66E08F).copy(alpha = 0.15f)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Filled.Info, "Default", tint = Color(0xFF66E08F))
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "Aura is currently your default launcher!",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
+        DefaultLauncherStatusCard(
+            isDefault = isDefault,
+            onRequestDefault = { LauncherActions.requestSetDefault(context) }
+        )
 
         Spacer(Modifier.height(48.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OutlinedButton(
-                onClick = onBack,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-            ) {
-                Text("Back", fontSize = 14.sp)
-            }
-
-            Button(
-                onClick = onComplete,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9D86FF)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp)
-            ) {
-                Text("Enter Aura", color = Color(0xFF0F0C1E), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        FinishNavigationButtons(
+            onBack = onBack,
+            onComplete = onComplete
+        )
     }
 }
 
