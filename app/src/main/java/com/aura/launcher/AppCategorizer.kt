@@ -2,7 +2,6 @@ package com.aura.launcher
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 
 /**
  * AppCategorizer — apps ko apne-aap category mein group karta hai.
