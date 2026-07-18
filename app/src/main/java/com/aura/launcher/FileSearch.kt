@@ -5,6 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
 
 /**
  * FileResult — ek mile hue file ki jaankari.
@@ -48,23 +52,31 @@ object FileSearch {
     /**
      * Naam se files dhoondho. Max 'limit' results (jaldi rahe).
      */
-    fun search(context: Context, query: String, limit: Int = 15): List<FileResult> {
-        if (query.isBlank() || query.length < 2) return emptyList()
-        if (!hasPermission(context)) return emptyList()
+    suspend fun search(context: Context, query: String, limit: Int = 15): List<FileResult> = kotlinx.coroutines.coroutineScope {
+        if (query.isBlank() || query.length < 2) return@coroutineScope emptyList()
+        if (!hasPermission(context)) return@coroutineScope emptyList()
 
-        val results = mutableListOf<FileResult>()
+        val results = java.util.concurrent.CopyOnWriteArrayList<FileResult>()
         val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
         val args = arrayOf("%$query%")
 
-        // Images, Videos, Audio — sab MediaStore se
-        queryStore(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            FileType.IMAGE, "image/*", selection, args, limit, results)
-        queryStore(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            FileType.VIDEO, "video/*", selection, args, limit, results)
-        queryStore(context, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            FileType.AUDIO, "audio/*", selection, args, limit, results)
+        // Images, Videos, Audio — sab MediaStore se (Parallel execution)
+        val imagesJob = async(Dispatchers.IO) {
+            queryStore(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                FileType.IMAGE, "image/*", selection, args, limit, results)
+        }
+        val videosJob = async(Dispatchers.IO) {
+            queryStore(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                FileType.VIDEO, "video/*", selection, args, limit, results)
+        }
+        val audioJob = async(Dispatchers.IO) {
+            queryStore(context, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                FileType.AUDIO, "audio/*", selection, args, limit, results)
+        }
 
-        return results.take(limit)
+        awaitAll(imagesJob, videosJob, audioJob)
+
+        return@coroutineScope results.take(limit)
     }
 
     private fun queryStore(
