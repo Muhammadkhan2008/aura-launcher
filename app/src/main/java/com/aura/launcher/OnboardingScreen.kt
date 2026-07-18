@@ -789,81 +789,35 @@ fun PlanStep(
         Spacer(Modifier.height(32.dp))
 
         // Plan 1: Free Plan Card
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = if (!selectedPro) Color(0xFF6C4DF6).copy(alpha = 0.15f)
-                else Color.White.copy(alpha = 0.04f)
-            ),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(
-                    width = 2.dp,
-                    color = if (!selectedPro) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(20.dp)
-                )
-                .clickable { selectedPro = false }
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Free Plan", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("FREE", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("• Standard 4x4 Grid layout", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                Text("• 2 Free customizable app icons", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                Text("• Local weather and recent tasks panel", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-            }
-        }
+        PlanCard(
+            title = "Free Plan",
+            price = "FREE",
+            isPro = false,
+            isSelected = !selectedPro,
+            onClick = { selectedPro = false },
+            features = listOf(
+                "Standard 4x4 Grid layout",
+                "2 Free customizable app icons",
+                "Local weather and recent tasks panel"
+            )
+        )
 
         Spacer(Modifier.height(16.dp))
 
         // Plan 2: Pro Plan Card
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = if (selectedPro) Color(0xFF6C4DF6).copy(alpha = 0.15f)
-                else Color.White.copy(alpha = 0.04f)
-            ),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(
-                    width = 2.dp,
-                    color = if (selectedPro) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(20.dp)
-                )
-                .clickable { selectedPro = true }
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Aura Pro Plan", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFFFFB300), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text("PRO", color = Color(0xFF1B1730), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    Text("$4.99/mo", color = Color(0xFFFFB300), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("• 10 Premium AI-Generated wallpapers", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                Text("• App Freezer (Hibernate system apps)", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                Text("• Alternate Premium App Icons (Whirl, Gold, Cyberpunk)", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                Text("• Advanced Custom Gestures & Grid controls", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-            }
-        }
+        PlanCard(
+            title = "Aura Pro Plan",
+            price = "$4.99/mo",
+            isPro = true,
+            isSelected = selectedPro,
+            onClick = { selectedPro = true },
+            features = listOf(
+                "10 Premium AI-Generated wallpapers",
+                "App Freezer (Hibernate system apps)",
+                "Alternate Premium App Icons (Whirl, Gold, Cyberpunk)",
+                "Advanced Custom Gestures & Grid controls"
+            )
+        )
 
         Spacer(Modifier.height(40.dp))
 
@@ -895,6 +849,62 @@ fun PlanStep(
                     .height(50.dp)
             ) {
                 Text("Next", color = Color.White, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun PlanCard(
+    title: String,
+    price: String,
+    isPro: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    features: List<String>
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color(0xFF6C4DF6).copy(alpha = 0.15f)
+            else Color.White.copy(alpha = 0.04f)
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                color = if (isSelected) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .clickable { onClick() }
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isPro) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFFFB300), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("PRO", color = Color(0xFF1B1730), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Text(price, color = Color(0xFFFFB300), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                } else {
+                    Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(price, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            features.forEach { feature ->
+                Text("• $feature", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
             }
         }
     }
