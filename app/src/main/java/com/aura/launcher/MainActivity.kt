@@ -1316,6 +1316,114 @@ fun FileRow(file: FileResult, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun FreezerAddDialog(
+    apps: List<AppInfo>,
+    frozenList: List<String>,
+    onAdd: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0xFF1B1730),
+            modifier = Modifier.fillMaxHeight(0.8f).padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Select Apps to Freeze", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(Modifier.height(8.dp))
+
+                val nonFrozenApps = apps.filter { it.packageName !in frozenList && it.packageName != "com.aura.launcher.freezer" }
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(nonFrozenApps) { app ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onAdd(app.packageName)
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = rememberDrawablePainter(app.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(app.label, color = Color.White, fontSize = 14.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Done")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FreezerAppGrid(
+    frozenList: List<String>,
+    appMap: Map<String, AppInfo>,
+    context: android.content.Context,
+    onUnfreeze: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        modifier = modifier
+    ) {
+        items(frozenList) { pkg ->
+            val app = appMap[pkg]
+            if (app != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .clickable {
+                            toast(context, "${app.label} is frozen! Unfreeze it first.")
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Image(
+                            painter = rememberDrawablePainter(app.icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF2193B0).copy(alpha = 0.4f))
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        app.label,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    TextButton(
+                        onClick = { onUnfreeze(pkg) },
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Text("Unfreeze", color = Color.Cyan, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** Freezer Dialog for managing background frozen apps */
 @Composable
 fun FreezerDialog(
@@ -1332,50 +1440,16 @@ fun FreezerDialog(
     val appMap = remember(apps) { apps.associateBy { it.packageName } }
 
     if (showAddDialog) {
-        Dialog(onDismissRequest = { showAddDialog = false }) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF1B1730),
-                modifier = Modifier.fillMaxHeight(0.8f).padding(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Select Apps to Freeze", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(Modifier.height(8.dp))
-                    
-                    val nonFrozenApps = apps.filter { it.packageName !in frozenList && it.packageName != "com.aura.launcher.freezer" }
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(nonFrozenApps) { app ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        prefs.freezeApp(app.packageName)
-                                        frozenList = frozenList + app.packageName
-                                        onRefresh()
-                                    }
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Image(
-                                    painter = rememberDrawablePainter(app.icon),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(app.label, color = Color.White, fontSize = 14.sp)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = { showAddDialog = false },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text("Done")
-                    }
-                }
-            }
-        }
+        FreezerAddDialog(
+            apps = apps,
+            frozenList = frozenList,
+            onAdd = { appPkg ->
+                prefs.freezeApp(appPkg)
+                frozenList = frozenList + appPkg
+                onRefresh()
+            },
+            onDismiss = { showAddDialog = false }
+        )
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1418,57 +1492,17 @@ fun FreezerDialog(
                         )
                     }
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                    FreezerAppGrid(
+                        frozenList = frozenList,
+                        appMap = appMap,
+                        context = context,
+                        onUnfreeze = { pkg ->
+                            prefs.unfreezeApp(pkg)
+                            frozenList = frozenList.filter { it != pkg }
+                            onRefresh()
+                        },
                         modifier = Modifier.weight(1f, fill = false).heightIn(max = 300.dp)
-                    ) {
-                        items(frozenList) { pkg ->
-                            val app = appMap[pkg]
-                            if (app != null) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .padding(8.dp)
-                                        .clickable {
-                                            toast(context, "${app.label} is frozen! Unfreeze it first.")
-                                        }
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Image(
-                                            painter = rememberDrawablePainter(app.icon),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFF2193B0).copy(alpha = 0.4f))
-                                        )
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        app.label,
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    TextButton(
-                                        onClick = {
-                                            prefs.unfreezeApp(pkg)
-                                            frozenList = frozenList.filter { it != pkg }
-                                            onRefresh()
-                                        },
-                                        contentPadding = PaddingValues(0.dp),
-                                        modifier = Modifier.height(24.dp)
-                                    ) {
-                                        Text("Unfreeze", color = Color.Cyan, fontSize = 10.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    )
                 }
 
                 Spacer(Modifier.height(16.dp))
