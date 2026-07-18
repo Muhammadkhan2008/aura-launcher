@@ -100,5 +100,4 @@ class AppCategorizerTest {
         assertEquals("com.facebook.katana", grouped[AppCategorizer.Category.SOCIAL]?.first()?.packageName)
     }
 
-    @Test
 }
