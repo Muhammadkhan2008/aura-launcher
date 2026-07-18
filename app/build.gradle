@@ -23,6 +23,13 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.returnDefaultValues = true
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -61,4 +68,11 @@ dependencies {
 
     // HorizontalPager — multiple home pages swipe left/right
     implementation 'androidx.compose.foundation:foundation'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation 'androidx.test:core-ktx:1.5.0'
+    testImplementation 'androidx.test.ext:junit-ktx:1.1.5'
+    testImplementation 'org.json:json:20231013'
 }
