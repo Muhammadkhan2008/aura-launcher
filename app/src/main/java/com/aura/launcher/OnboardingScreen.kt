@@ -480,6 +480,29 @@ fun PermissionsStep(
         }
     }
 
+    PermissionsStepContent(
+        locationGranted = locationGranted,
+        micGranted = micGranted,
+        usageStatsGranted = usageStatsGranted,
+        onRequestLocation = { locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
+        onRequestMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+        onRequestUsageStats = { RecentApps.requestUsagePermission(context) },
+        onBack = onBack,
+        onNext = onNext
+    )
+}
+
+@Composable
+fun PermissionsStepContent(
+    locationGranted: Boolean,
+    micGranted: Boolean,
+    usageStatsGranted: Boolean,
+    onRequestLocation: () -> Unit,
+    onRequestMic: () -> Unit,
+    onRequestUsageStats: () -> Unit,
+    onBack: () -> Unit,
+    onNext: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -512,7 +535,7 @@ fun PermissionsStep(
             description = "Required to fetch local weather information for the home screen widget.",
             icon = Icons.Filled.LocationOn,
             granted = locationGranted,
-            onRequest = { locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
+            onRequest = onRequestLocation
         )
 
         Spacer(Modifier.height(16.dp))
@@ -523,7 +546,7 @@ fun PermissionsStep(
             description = "Allows you to speak to search apps and ask the built-in AI Helper.",
             icon = Icons.Filled.Mic,
             granted = micGranted,
-            onRequest = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+            onRequest = onRequestMic
         )
 
         Spacer(Modifier.height(16.dp))
@@ -534,7 +557,7 @@ fun PermissionsStep(
             description = "Required to predict and display your recently and frequently used apps.",
             icon = Icons.Filled.Speed,
             granted = usageStatsGranted,
-            onRequest = { RecentApps.requestUsagePermission(context) }
+            onRequest = onRequestUsageStats
         )
 
         Spacer(Modifier.height(40.dp))
