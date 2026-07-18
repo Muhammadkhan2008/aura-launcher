@@ -1,0 +1,423 @@
+--- app/src/main/java/com/aura/launcher/MainActivity.kt
++++ app/src/main/java/com/aura/launcher/MainActivity.kt
+@@ -1695,199 +1695,15 @@
+                 .padding(16.dp)
+         ) {
+             Column(modifier = Modifier.padding(20.dp)) {
+-                Row(
+-                    modifier = Modifier.fillMaxWidth(),
+-                    horizontalArrangement = Arrangement.SpaceBetween,
+-                    verticalAlignment = Alignment.CenterVertically
+-                ) {
+-                    Column {
+-                        Text(
+-                            "🔀 Aura Multitasker",
+-                            color = Color.White,
+-                            fontSize = 18.sp,
+-                            fontWeight = FontWeight.Bold
+-                        )
+-                        Text(
+-                            "${activeListState.size} active background tasks",
+-                            color = Color.White.copy(alpha = 0.5f),
+-                            fontSize = 11.sp
+-                        )
+-                    }
+-                    IconButton(onClick = onDismiss) {
+-                        Icon(Icons.Filled.Home, "Home", tint = Color.White)
+-                    }
+-                }
++                MultitaskerHeader(activeListState.size, onDismiss)
+
+                 Spacer(Modifier.height(16.dp))
+
+-                OutlinedTextField(
+-                    value = searchQuery,
+-                    onValueChange = { searchQuery = it },
+-                    placeholder = { Text("Search running tasks...", color = Color.White.copy(alpha = 0.5f)) },
+-                    modifier = Modifier.fillMaxWidth(),
+-                    shape = RoundedCornerShape(12.dp),
+-                    colors = TextFieldDefaults.outlinedTextFieldColors(
+-                        focusedTextColor = Color.White,
+-                        unfocusedTextColor = Color.White,
+-                        focusedBorderColor = Color(0xFF9D86FF),
+-                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+-                        containerColor = Color.White.copy(alpha = 0.05f)
+-                    ),
+-                    singleLine = true,
+-                    leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.5f)) }
+-                )
++                MultitaskerSearchBar(searchQuery) { searchQuery = it }
+
+                 Spacer(Modifier.height(16.dp))
+
+                 if (filteredActive.isEmpty()) {
+-                    Box(
+-                        modifier = Modifier
+-                            .fillMaxWidth()
+-                            .height(280.dp),
+-                        contentAlignment = Alignment.Center
+-                    ) {
+-                        Text(
+-                            if (searchQuery.isNotBlank()) "No matching running apps"
+-                            else "No active tasks found",
+-                            color = Color.White.copy(alpha = 0.5f),
+-                            fontSize = 13.sp
+-                        )
+-                    }
++                    MultitaskerEmptyState(searchQuery)
+                 } else {
+                     LazyRow(
+                         modifier = Modifier
+                             .fillMaxWidth()
+                             .height(280.dp),
+                         horizontalArrangement = Arrangement.spacedBy(16.dp),
+                         contentPadding = PaddingValues(horizontal = 8.dp)
+                     ) {
+                         items(filteredActive, key = { it.packageName }) { app ->
+-                            Card(
+-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+-                                shape = RoundedCornerShape(20.dp),
+-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+-                                modifier = Modifier
+-                                    .width(180.dp)
+-                                    .fillMaxHeight()
+-                                    .clickable {
+-                                        AppRepository.launchApp(context, app)
+-                                        onDismiss()
+-                                    }
+-                            ) {
+-                                Column(
+-                                    modifier = Modifier
+-                                        .padding(12.dp)
+-                                        .fillMaxSize(),
+-                                    verticalArrangement = Arrangement.SpaceBetween
+-                                ) {
+-                                    // Icon + Label
+-                                    Row(
+-                                        verticalAlignment = Alignment.CenterVertically,
+-                                        modifier = Modifier.fillMaxWidth()
+-                                    ) {
+-                                        Image(
+-                                            painter = rememberDrawablePainter(app.icon),
+-                                            contentDescription = null,
+-                                            modifier = Modifier
+-                                                .size(28.dp)
+-                                                .clip(RoundedCornerShape(6.dp))
+-                                        )
+-                                        Spacer(Modifier.width(8.dp))
+-                                        Text(
+-                                            app.label,
+-                                            color = Color.White,
+-                                            fontSize = 13.sp,
+-                                            fontWeight = FontWeight.Bold,
+-                                            maxLines = 1,
+-                                            overflow = TextOverflow.Ellipsis
+-                                        )
+-                                    }
+-
+-                                    // Preview placeholder
+-                                    Box(
+-                                        modifier = Modifier
+-                                            .weight(1f)
+-                                            .fillMaxWidth()
+-                                            .padding(vertical = 12.dp)
+-                                            .clip(RoundedCornerShape(12.dp))
+-                                            .background(
+-                                                Brush.verticalGradient(
+-                                                    listOf(
+-                                                        Color.White.copy(alpha = 0.02f),
+-                                                        Color.White.copy(alpha = 0.06f)
+-                                                    )
+-                                                )
+-                                            ),
+-                                        contentAlignment = Alignment.Center
+-                                    ) {
+-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+-                                            Text("⚡ Running", color = Color(0xFF00FFCC), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+-                                            Text(app.packageName.takeLast(16), color = Color.White.copy(alpha = 0.3f), fontSize = 8.sp, maxLines = 1)
+-                                        }
+-                                    }
+-
+-                                    // Action buttons (Lock + Hibernate)
+-                                    Row(
+-                                        modifier = Modifier.fillMaxWidth(),
+-                                        horizontalArrangement = Arrangement.SpaceBetween,
+-                                        verticalAlignment = Alignment.CenterVertically
+-                                    ) {
+-                                        IconButton(
+-                                            onClick = {
+-                                                toast(context, "${app.label} locked in memory 🔒")
+-                                            },
+-                                            modifier = Modifier.size(32.dp)
+-                                        ) {
+-                                            Text("🔒", fontSize = 14.sp)
+-                                        }
+-
+-                                        Button(
+-                                            onClick = {
+-                                                prefs.freezeApp(app.packageName)
+-                                                activeListState = activeListState.filter { it.packageName != app.packageName }
+-                                                toast(context, "${app.label} hibernated! ❄️")
+-                                            },
+-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252).copy(alpha = 0.15f)),
+-                                            shape = RoundedCornerShape(8.dp),
+-                                            contentPadding = PaddingValues(horizontal = 10.dp),
+-                                            modifier = Modifier.height(28.dp)
+-                                        ) {
+-                                            Text("Hibernate", color = Color(0xFFFF8A8A), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+-                                        }
+-                                    }
+-                                }
+-                            }
++                            MultitaskerAppCard(
++                                app = app,
++                                onLaunch = {
++                                    AppRepository.launchApp(context, app)
++                                    onDismiss()
++                                },
++                                onLock = {
++                                    toast(context, "${app.label} locked in memory 🔒")
++                                },
++                                onHibernate = {
++                                    prefs.freezeApp(app.packageName)
++                                    activeListState = activeListState.filter { it.packageName != app.packageName }
++                                    toast(context, "${app.label} hibernated! ❄️")
++                                }
++                            )
+                         }
+                     }
+                 }
+
+                 Spacer(Modifier.height(24.dp))
+
+-                // Bottom row: centered Trash can + close text
+-                Row(
+-                    modifier = Modifier.fillMaxWidth(),
+-                    horizontalArrangement = Arrangement.Center,
+-                    verticalAlignment = Alignment.CenterVertically
+-                ) {
+-                    IconButton(
+-                        onClick = {
+-                            activeListState.forEach { app ->
+-                                prefs.freezeApp(app.packageName)
+-                            }
+-                            activeListState = emptyList()
+-                            toast(context, "RAM Cleared! All tasks hibernated. ⚡")
+-                            onDismiss()
+-                        },
+-                        modifier = Modifier
+-                            .size(56.dp)
+-                            .background(Color(0xFFFF5252).copy(alpha = 0.15f), CircleShape)
+-                            .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f), CircleShape)
+-                    ) {
+-                        Text("🗑️", fontSize = 24.sp)
+-                    }
+-
+-                    Spacer(Modifier.width(20.dp))
+-
+-                    TextButton(onClick = onDismiss) {
+-                        Text("Close", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+-                    }
+-                }
++                MultitaskerBottomBar(
++                    onClearAll = {
++                        activeListState.forEach { app ->
++                            prefs.freezeApp(app.packageName)
++                        }
++                        activeListState = emptyList()
++                        toast(context, "RAM Cleared! All tasks hibernated. ⚡")
++                        onDismiss()
++                    },
++                    onDismiss = onDismiss
++                )
+             }
+         }
+     }
+ }
++
++@Composable
++fun MultitaskerHeader(taskCount: Int, onDismiss: () -> Unit) {
++    Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        Column {
++            Text(
++                "🔀 Aura Multitasker",
++                color = Color.White,
++                fontSize = 18.sp,
++                fontWeight = FontWeight.Bold
++            )
++            Text(
++                "$taskCount active background tasks",
++                color = Color.White.copy(alpha = 0.5f),
++                fontSize = 11.sp
++            )
++        }
++        IconButton(onClick = onDismiss) {
++            Icon(Icons.Filled.Home, "Home", tint = Color.White)
++        }
++    }
++}
++
++@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
++@Composable
++fun MultitaskerSearchBar(searchQuery: String, onSearchQueryChange: (String) -> Unit) {
++    OutlinedTextField(
++        value = searchQuery,
++        onValueChange = onSearchQueryChange,
++        placeholder = { Text("Search running tasks...", color = Color.White.copy(alpha = 0.5f)) },
++        modifier = Modifier.fillMaxWidth(),
++        shape = RoundedCornerShape(12.dp),
++        colors = TextFieldDefaults.outlinedTextFieldColors(
++            focusedTextColor = Color.White,
++            unfocusedTextColor = Color.White,
++            focusedBorderColor = Color(0xFF9D86FF),
++            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
++            containerColor = Color.White.copy(alpha = 0.05f)
++        ),
++        singleLine = true,
++        leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.5f)) }
++    )
++}
++
++@Composable
++fun MultitaskerEmptyState(searchQuery: String) {
++    Box(
++        modifier = Modifier
++            .fillMaxWidth()
++            .height(280.dp),
++        contentAlignment = Alignment.Center
++    ) {
++        Text(
++            if (searchQuery.isNotBlank()) "No matching running apps"
++            else "No active tasks found",
++            color = Color.White.copy(alpha = 0.5f),
++            fontSize = 13.sp
++        )
++    }
++}
++
++@Composable
++fun MultitaskerAppCard(
++    app: AppInfo,
++    onLaunch: () -> Unit,
++    onLock: () -> Unit,
++    onHibernate: () -> Unit
++) {
++    Card(
++        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
++        shape = RoundedCornerShape(20.dp),
++        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
++        modifier = Modifier
++            .width(180.dp)
++            .fillMaxHeight()
++            .clickable { onLaunch() }
++    ) {
++        Column(
++            modifier = Modifier
++                .padding(12.dp)
++                .fillMaxSize(),
++            verticalArrangement = Arrangement.SpaceBetween
++        ) {
++            // Icon + Label
++            Row(
++                verticalAlignment = Alignment.CenterVertically,
++                modifier = Modifier.fillMaxWidth()
++            ) {
++                Image(
++                    painter = rememberDrawablePainter(app.icon),
++                    contentDescription = null,
++                    modifier = Modifier
++                        .size(28.dp)
++                        .clip(RoundedCornerShape(6.dp))
++                )
++                Spacer(Modifier.width(8.dp))
++                Text(
++                    app.label,
++                    color = Color.White,
++                    fontSize = 13.sp,
++                    fontWeight = FontWeight.Bold,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis
++                )
++            }
++
++            // Preview placeholder
++            Box(
++                modifier = Modifier
++                    .weight(1f)
++                    .fillMaxWidth()
++                    .padding(vertical = 12.dp)
++                    .clip(RoundedCornerShape(12.dp))
++                    .background(
++                        Brush.verticalGradient(
++                            listOf(
++                                Color.White.copy(alpha = 0.02f),
++                                Color.White.copy(alpha = 0.06f)
++                            )
++                        )
++                    ),
++                contentAlignment = Alignment.Center
++            ) {
++                Column(horizontalAlignment = Alignment.CenterHorizontally) {
++                    Text("⚡ Running", color = Color(0xFF00FFCC), fontSize = 10.sp, fontWeight = FontWeight.Bold)
++                    Text(app.packageName.takeLast(16), color = Color.White.copy(alpha = 0.3f), fontSize = 8.sp, maxLines = 1)
++                }
++            }
++
++            // Action buttons (Lock + Hibernate)
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++                horizontalArrangement = Arrangement.SpaceBetween,
++                verticalAlignment = Alignment.CenterVertically
++            ) {
++                IconButton(
++                    onClick = onLock,
++                    modifier = Modifier.size(32.dp)
++                ) {
++                    Text("🔒", fontSize = 14.sp)
++                }
++
++                Button(
++                    onClick = onHibernate,
++                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252).copy(alpha = 0.15f)),
++                    shape = RoundedCornerShape(8.dp),
++                    contentPadding = PaddingValues(horizontal = 10.dp),
++                    modifier = Modifier.height(28.dp)
++                ) {
++                    Text("Hibernate", color = Color(0xFFFF8A8A), fontSize = 10.sp, fontWeight = FontWeight.Bold)
++                }
++            }
++        }
++    }
++}
++
++@Composable
++fun MultitaskerBottomBar(
++    onClearAll: () -> Unit,
++    onDismiss: () -> Unit
++) {
++    Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.Center,
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        IconButton(
++            onClick = onClearAll,
++            modifier = Modifier
++                .size(56.dp)
++                .background(Color(0xFFFF5252).copy(alpha = 0.15f), CircleShape)
++                .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f), CircleShape)
++        ) {
++            Text("🗑️", fontSize = 24.sp)
++        }
++
++        Spacer(Modifier.width(20.dp))
++
++        TextButton(onClick = onDismiss) {
++            Text("Close", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
++        }
++    }
++}
