@@ -31,6 +31,8 @@ android {
         jvmTarget = '17'
     }
 
+    testOptions { unitTests { includeAndroidResources = true; returnDefaultValues = true } }
+
     buildFeatures {
         compose true
     }
@@ -40,6 +42,13 @@ android {
 }
 
 dependencies {
+    // Test Dependencies
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.mockito:mockito-core:5.8.0"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:5.2.1"
+    testImplementation "org.robolectric:robolectric:4.11.1"
+    testImplementation "androidx.test.ext:junit:1.1.5"
+
     // Core Android
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
