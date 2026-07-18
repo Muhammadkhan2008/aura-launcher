@@ -55,7 +55,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.viewinterop.AndroidView
 import android.net.Uri
-import android.provider.MediaStore
 import android.provider.Settings
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
