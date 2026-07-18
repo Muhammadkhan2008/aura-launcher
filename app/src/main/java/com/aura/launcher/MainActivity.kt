@@ -2372,303 +2372,397 @@ fun AirViewWindowMode(
             }
         }
 
-        // Windows 11-like Centered Taskbar at the bottom (Glassmorphic look)
+        AirViewTaskbar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            startMenuOpen = startMenuOpen,
+            onStartMenuToggle = { startMenuOpen = !startMenuOpen },
+            onStartMenuSearchOpen = {
+                startMenuOpen = true
+                startSearchQuery = ""
+            },
+            onMultitaskerOpen = onMultitaskerOpen,
+            activeWindows = activeWindows,
+            onWindowsChange = { activeWindows = it },
+            quickSettingsOpen = quickSettingsOpen,
+            onQuickSettingsToggle = { quickSettingsOpen = !quickSettingsOpen },
+            context = context
+        )
+
+        AirViewStartMenu(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            startMenuOpen = startMenuOpen,
+            startSearchQuery = startSearchQuery,
+            onSearchQueryChange = { startSearchQuery = it },
+            filteredApps = filteredApps,
+            onSettingsOpen = {
+                onSettingsOpen()
+                startMenuOpen = false
+            },
+            onLockScreenTrigger = {
+                onLockScreenTrigger()
+                startMenuOpen = false
+            },
+            onAppClick = { app ->
+                activeWindows = openOrFocusWindow(activeWindows, app)
+                startMenuOpen = false
+            }
+        )
+
+        AirViewPremiumWidgets(
+            modifier = Modifier.align(Alignment.TopEnd),
+            context = context
+        )
+
+        AirViewQuickSettings(
+            modifier = Modifier.align(Alignment.BottomEnd),
+            quickSettingsOpen = quickSettingsOpen
+        )
+
+        AirViewContextMenu(
+            contextMenuPosition = contextMenuPosition,
+            onClose = { contextMenuPosition = null },
+            onSettingsOpen = onSettingsOpen,
+            prefs = prefs,
+            context = context
+        )
+    }
+}
+
+@Composable
+fun AirViewContextMenu(
+    contextMenuPosition: androidx.compose.ui.geometry.Offset?,
+    onClose: () -> Unit,
+    onSettingsOpen: () -> Unit,
+    prefs: AuraPrefs,
+    context: android.content.Context
+) {
+    if (contextMenuPosition != null) {
+        val offset = contextMenuPosition
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xF7161426)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .offset(
+                    x = with(LocalDensity.current) { offset.x.toDp() },
+                    y = with(LocalDensity.current) { offset.y.toDp() }
+                )
+                .width(180.dp)
+                .border(1.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                .shadow(12.dp, RoundedCornerShape(12.dp))
+                .pointerInput(Unit) { detectTapGestures {} }
+        ) {
+            Column(modifier = Modifier.padding(6.dp)) {
+                ContextMenuItem("🔄 Refresh Desktop") {
+                    onClose()
+                    android.widget.Toast.makeText(context, "Desktop refreshed ✓", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                ContextMenuItem("🖼️ Open Control Panel") {
+                    onClose()
+                    onSettingsOpen()
+                }
+                ContextMenuItem("📱 Toggle Wallpaper") {
+                    onClose()
+                    prefs.useSystemWallpaper = !prefs.useSystemWallpaper
+                    onSettingsOpen()
+                }
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 4.dp))
+                ContextMenuItem("❌ Close Menu") {
+                    onClose()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AirViewQuickSettings(
+    modifier: Modifier = Modifier,
+    quickSettingsOpen: Boolean
+) {
+    // --- QUICK SETTINGS / ACTION CENTER FLYOUT ---
+    AnimatedVisibility(
+        visible = quickSettingsOpen,
+        enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+        modifier = modifier.padding(bottom = 68.dp, end = 12.dp)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xF2110E21)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .width(260.dp)
+                .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                .pointerInput(Unit) { detectTapGestures {} }
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Quick Settings",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                var wifiActive by remember { mutableStateOf(true) }
+                var btActive by remember { mutableStateOf(false) }
+                var airplaneActive by remember { mutableStateOf(false) }
+                var flashActive by remember { mutableStateOf(false) }
+                var dndActive by remember { mutableStateOf(false) }
+                var saverActive by remember { mutableStateOf(true) }
+
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxWidth().height(110.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item { QuickToggle("📶", "Wi-Fi", wifiActive) { wifiActive = !wifiActive } }
+                    item { QuickToggle("🔵", "Bluetooth", btActive) { btActive = !btActive } }
+                    item { QuickToggle("✈️", "Airplane", airplaneActive) { airplaneActive = !airplaneActive } }
+                    item { QuickToggle("💡", "Flash", flashActive) { flashActive = !flashActive } }
+                    item { QuickToggle("🌙", "DND", dndActive) { dndActive = !dndActive } }
+                    item { QuickToggle("🔋", "Saver", saverActive) { saverActive = !saverActive } }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Volume Slider
+                var volumeVal by remember { mutableStateOf(0.7f) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("🔊", fontSize = 12.sp)
+                    Slider(
+                        value = volumeVal,
+                        onValueChange = { volumeVal = it },
+                        modifier = Modifier.weight(1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF9D86FF),
+                            activeTrackColor = Color(0xFF6C4DF6)
+                        )
+                    )
+                }
+
+                // Brightness Slider
+                var brightnessVal by remember { mutableStateOf(0.6f) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("☀️", fontSize = 12.sp)
+                    Slider(
+                        value = brightnessVal,
+                        onValueChange = { brightnessVal = it },
+                        modifier = Modifier.weight(1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF9D86FF),
+                            activeTrackColor = Color(0xFF6C4DF6)
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AirViewPremiumWidgets(
+    modifier: Modifier = Modifier,
+    context: android.content.Context
+) {
+    // --- PREMIUM RIGHT SIDE WIDGETS ---
+    Column(
+        modifier = modifier
+            .padding(top = 60.dp, end = 24.dp)
+            .width(140.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Clock & Weather Widget
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0x660D0B18)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val systemTimeStr = remember { mutableStateOf("") }
+                val systemDateStr = remember { mutableStateOf("") }
+                LaunchedEffect(Unit) {
+                    while(true) {
+                        val now = java.util.Calendar.getInstance()
+                        systemTimeStr.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
+                        systemDateStr.value = android.text.format.DateFormat.getMediumDateFormat(context).format(now.time)
+                        kotlinx.coroutines.delay(1000)
+                    }
+                }
+                Text(
+                    text = systemTimeStr.value,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = systemDateStr.value,
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("☀️ 29°C", color = Color(0xFFFFD54F), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Sunny • Porto", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+            }
+        }
+
+        // Calendar / Agenda Widget
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0x660D0B18)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = "Agenda",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                AgendaItem("🏋️", "Gym", "10:00 AM")
+                AgendaItem("🍔", "Lunch", "1:00 PM")
+                AgendaItem("🎨", "Sync", "3:30 PM")
+            }
+        }
+    }
+}
+
+@Composable
+fun AirViewStartMenu(
+    modifier: Modifier = Modifier,
+    startMenuOpen: Boolean,
+    startSearchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    filteredApps: List<AppInfo>,
+    onSettingsOpen: () -> Unit,
+    onLockScreenTrigger: () -> Unit,
+    onAppClick: (AppInfo) -> Unit
+) {
+    // Start Menu Overlay (Windows 11 Styled floating bottom menu) with smooth slide animation
+    AnimatedVisibility(
+        visible = startMenuOpen,
+        enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+        modifier = modifier.padding(bottom = 68.dp)
+    ) {
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp)
-                .fillMaxWidth()
-                .height(60.dp)
-                .background(Color(0xD90D0B18))
-                .border(1.dp, Color.White.copy(alpha = 0.12f))
+                .width(360.dp)
+                .height(460.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xF2110E21))
+                .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {}) // Prevent dismiss when tapping inside
+                }
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Taskbar center panel (Windows 11 Layout)
-                    Row(
-                        modifier = Modifier.align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Search box
+                OutlinedTextField(
+                    value = startSearchQuery,
+                    onValueChange = onSearchQueryChange,
+                    placeholder = { Text("Search programs...", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF9D86FF),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                        focusedContainerColor = Color.White.copy(alpha = 0.03f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.03f)
+                    ),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(16.dp)) }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("All Programs", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    // Quick icons sidebar (Avatar, settings, power)
+                    Column(
+                        modifier = Modifier
+                            .width(48.dp)
+                            .fillMaxHeight()
+                            .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(8.dp))
+                            .padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Start Button
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.25f) else Color.Transparent)
-                                .clickable { startMenuOpen = !startMenuOpen }
-                                .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("🪟", fontSize = 20.sp)
+                        Text("👤", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.weight(1f))
+                        IconButton(onClick = onSettingsOpen) {
+                            Icon(Icons.Filled.Settings, "Settings", tint = Color.White.copy(alpha = 0.6f))
                         }
-
-                        // Search Button
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    startMenuOpen = true
-                                    startSearchQuery = ""
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.Search, "Search", tint = Color.White, modifier = Modifier.size(20.dp))
+                        IconButton(onClick = onLockScreenTrigger) {
+                            Text("🔒", fontSize = 16.sp)
                         }
+                    }
 
-                        // Task View (Recents/Multitasker) Button
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { onMultitaskerOpen() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("📋", fontSize = 20.sp)
-                        }
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                        // Web Browser
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
-                                    activeWindows = activeWindows + WindowInfo(
-                                        app = null,
-                                        type = "BROWSER",
-                                        zIndex = maxZ + 1f
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("🌐", fontSize = 20.sp)
-                        }
-
-                        // Explorer
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
-                                    val storageRoot = Environment.getExternalStorageDirectory().absolutePath
-                                    activeWindows = activeWindows + WindowInfo(
-                                        app = null,
-                                        type = "EXPLORER",
-                                        currentFolder = "This PC",
-                                        currentPath = storageRoot,
-                                        zIndex = maxZ + 1f
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("📁", fontSize = 20.sp)
-                        }
-
-                        // Divider
-                        Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.2f)))
-
-                        // Running tasks
-                        activeWindows.forEach { win ->
-                            val isFocused = activeWindows.maxByOrNull { it.zIndex }?.id == win.id && !win.isMinimized
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isFocused) Color.White.copy(alpha = 0.12f) else Color.Transparent)
-                                    .border(1.dp, if (isFocused) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        val current = activeWindows.toMutableList()
-                                        val idx = current.indexOfFirst { it.id == win.id }
-                                        if (idx != -1) {
-                                            val w = current[idx]
-                                            if (w.isMinimized) {
-                                                val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
-                                                current[idx] = w.copy(isMinimized = false, zIndex = maxZ + 1f)
-                                            } else if (isFocused) {
-                                                current[idx] = w.copy(isMinimized = true)
-                                            } else {
-                                                val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
-                                                current[idx] = w.copy(zIndex = maxZ + 1f)
-                                            }
-                                            activeWindows = current
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
+                    // Grid of all programs
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        if (filteredApps.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No programs found", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                            }
+                        } else {
+                            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                    if (win.type == "BROWSER") {
-                                        Text("🌐", fontSize = 16.sp)
-                                    } else if (win.type == "EXPLORER") {
-                                        Text("📁", fontSize = 16.sp)
-                                    } else if (win.app != null) {
+                                items(filteredApps.size) { index ->
+                                    val app = filteredApps[index]
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { onAppClick(app) }
+                                            .padding(4.dp)
+                                    ) {
                                         Image(
-                                            painter = rememberDrawablePainter(win.app.icon),
+                                            painter = rememberDrawablePainter(app.icon),
                                             contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = app.label,
+                                            color = Color.White,
+                                            fontSize = 9.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Box(modifier = Modifier.width(12.dp).height(2.dp).background(if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.4f)))
-                                }
-                            }
-                        }
-                    }
-
-                    // System tray clock & tray items
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 8.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (quickSettingsOpen) Color.White.copy(alpha = 0.08f) else Color.Transparent)
-                            .clickable { quickSettingsOpen = !quickSettingsOpen }
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val systemTime = remember { mutableStateOf("") }
-                        LaunchedEffect(Unit) {
-                            while(true) {
-                                val now = java.util.Calendar.getInstance()
-                                systemTime.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
-                                kotlinx.coroutines.delay(1000)
-                            }
-                        }
-
-                        Text("📶", fontSize = 11.sp)
-                        Text("🔋 ⚡", fontSize = 11.sp, color = Color(0xFF66E08F))
-                        Text(
-                            text = systemTime.value,
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-
-        // Start Menu Overlay (Windows 11 Styled floating bottom menu) with smooth slide animation
-        AnimatedVisibility(
-            visible = startMenuOpen,
-            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 68.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(360.dp)
-                    .height(460.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xF2110E21))
-                    .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = {}) // Prevent dismiss when tapping inside
-                    }
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Search box
-                    OutlinedTextField(
-                        value = startSearchQuery,
-                        onValueChange = { startSearchQuery = it },
-                        placeholder = { Text("Search programs...", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF9D86FF),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                            focusedContainerColor = Color.White.copy(alpha = 0.03f),
-                            unfocusedContainerColor = Color.White.copy(alpha = 0.03f)
-                        ),
-                        singleLine = true,
-                        leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(16.dp)) }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text("All Programs", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
-
-                    Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        // Quick icons sidebar (Avatar, settings, power)
-                        Column(
-                            modifier = Modifier
-                                .width(48.dp)
-                                .fillMaxHeight()
-                                .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(8.dp))
-                                .padding(vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text("👤", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.weight(1f))
-                            IconButton(onClick = {
-                                onSettingsOpen()
-                                startMenuOpen = false
-                            }) {
-                                Icon(Icons.Filled.Settings, "Settings", tint = Color.White.copy(alpha = 0.6f))
-                            }
-                            IconButton(onClick = {
-                                onLockScreenTrigger()
-                                startMenuOpen = false
-                            }) {
-                                Text("🔒", fontSize = 16.sp)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Grid of all programs
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            if (filteredApps.isEmpty()) {
-                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text("No programs found", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
-                                }
-                            } else {
-                                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(filteredApps.size) { index ->
-                                        val app = filteredApps[index]
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .clickable {
-                                                    activeWindows = openOrFocusWindow(activeWindows, app)
-                                                    startMenuOpen = false
-                                                }
-                                                .padding(4.dp)
-                                        ) {
-                                            Image(
-                                                painter = rememberDrawablePainter(app.icon),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = app.label,
-                                                color = Color.White,
-                                                fontSize = 9.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -2676,209 +2770,197 @@ fun AirViewWindowMode(
                 }
             }
         }
+    }
+}
 
-        // --- PREMIUM RIGHT SIDE WIDGETS ---
-        Column(
+@Composable
+fun AirViewTaskbar(
+    modifier: Modifier = Modifier,
+    startMenuOpen: Boolean,
+    onStartMenuToggle: () -> Unit,
+    onStartMenuSearchOpen: () -> Unit,
+    onMultitaskerOpen: () -> Unit,
+    activeWindows: List<WindowInfo>,
+    onWindowsChange: (List<WindowInfo>) -> Unit,
+    quickSettingsOpen: Boolean,
+    onQuickSettingsToggle: () -> Unit,
+    context: android.content.Context
+) {
+    // Windows 11-like Centered Taskbar at the bottom (Glassmorphic look)
+    Box(
+        modifier = modifier
+            .padding(bottom = 48.dp)
+            .fillMaxWidth()
+            .height(60.dp)
+            .background(Color(0xD90D0B18))
+            .border(1.dp, Color.White.copy(alpha = 0.12f))
+    ) {
+        Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 60.dp, end = 24.dp)
-                .width(140.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Clock & Weather Widget
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0x660D0B18)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Taskbar center panel (Windows 11 Layout)
+                Row(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val systemTimeStr = remember { mutableStateOf("") }
-                    val systemDateStr = remember { mutableStateOf("") }
+                    // Start Button
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (startMenuOpen) Color(0xFF6C4DF6).copy(alpha = 0.25f) else Color.Transparent)
+                            .clickable { onStartMenuToggle() }
+                            .border(1.dp, if (startMenuOpen) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🪟", fontSize = 20.sp)
+                    }
+
+                    // Search Button
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onStartMenuSearchOpen() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Search, "Search", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+
+                    // Task View (Recents/Multitasker) Button
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onMultitaskerOpen() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("📋", fontSize = 20.sp)
+                    }
+
+                    // Web Browser
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+                                onWindowsChange(activeWindows + WindowInfo(
+                                    app = null,
+                                    type = "BROWSER",
+                                    zIndex = maxZ + 1f
+                                ))
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🌐", fontSize = 20.sp)
+                    }
+
+                    // Explorer
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                val maxZ = activeWindows.maxOfOrNull { it.zIndex } ?: 0f
+                                val storageRoot = Environment.getExternalStorageDirectory().absolutePath
+                                onWindowsChange(activeWindows + WindowInfo(
+                                    app = null,
+                                    type = "EXPLORER",
+                                    currentFolder = "This PC",
+                                    currentPath = storageRoot,
+                                    zIndex = maxZ + 1f
+                                ))
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("📁", fontSize = 20.sp)
+                    }
+
+                    // Divider
+                    Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.2f)))
+
+                    // Running tasks
+                    activeWindows.forEach { win ->
+                        val isFocused = activeWindows.maxByOrNull { it.zIndex }?.id == win.id && !win.isMinimized
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isFocused) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .border(1.dp, if (isFocused) Color(0xFF9D86FF) else Color.Transparent, RoundedCornerShape(8.dp))
+                                .clickable {
+                                    val current = activeWindows.toMutableList()
+                                    val idx = current.indexOfFirst { it.id == win.id }
+                                    if (idx != -1) {
+                                        val w = current[idx]
+                                        if (w.isMinimized) {
+                                            val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
+                                            current[idx] = w.copy(isMinimized = false, zIndex = maxZ + 1f)
+                                        } else if (isFocused) {
+                                            current[idx] = w.copy(isMinimized = true)
+                                        } else {
+                                            val maxZ = current.maxOfOrNull { it.zIndex } ?: 0f
+                                            current[idx] = w.copy(zIndex = maxZ + 1f)
+                                        }
+                                        onWindowsChange(current)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                if (win.type == "BROWSER") {
+                                    Text("🌐", fontSize = 16.sp)
+                                } else if (win.type == "EXPLORER") {
+                                    Text("📁", fontSize = 16.sp)
+                                } else if (win.app != null) {
+                                    Image(
+                                        painter = rememberDrawablePainter(win.app.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Box(modifier = Modifier.width(12.dp).height(2.dp).background(if (isFocused) Color(0xFF9D86FF) else Color.White.copy(alpha = 0.4f)))
+                            }
+                        }
+                    }
+                }
+
+                // System tray clock & tray items
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (quickSettingsOpen) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+                        .clickable { onQuickSettingsToggle() }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val systemTime = remember { mutableStateOf("") }
                     LaunchedEffect(Unit) {
                         while(true) {
                             val now = java.util.Calendar.getInstance()
-                            systemTimeStr.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
-                            systemDateStr.value = android.text.format.DateFormat.getMediumDateFormat(context).format(now.time)
+                            systemTime.value = android.text.format.DateFormat.getTimeFormat(context).format(now.time)
                             kotlinx.coroutines.delay(1000)
                         }
                     }
+
+                    Text("📶", fontSize = 11.sp)
+                    Text("🔋 ⚡", fontSize = 11.sp, color = Color(0xFF66E08F))
                     Text(
-                        text = systemTimeStr.value,
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        text = systemTime.value,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = systemDateStr.value,
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("☀️ 29°C", color = Color(0xFFFFD54F), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Sunny • Porto", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
-                }
-            }
-
-            // Calendar / Agenda Widget
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0x660D0B18)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = "Agenda",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                    AgendaItem("🏋️", "Gym", "10:00 AM")
-                    AgendaItem("🍔", "Lunch", "1:00 PM")
-                    AgendaItem("🎨", "Sync", "3:30 PM")
-                }
-            }
-        }
-
-        // --- QUICK SETTINGS / ACTION CENTER FLYOUT ---
-        AnimatedVisibility(
-            visible = quickSettingsOpen,
-            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 68.dp, end = 12.dp)
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xF2110E21)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .width(260.dp)
-                    .border(1.dp, Color(0xFF6C4DF6).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                    .pointerInput(Unit) { detectTapGestures {} }
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Quick Settings",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    var wifiActive by remember { mutableStateOf(true) }
-                    var btActive by remember { mutableStateOf(false) }
-                    var airplaneActive by remember { mutableStateOf(false) }
-                    var flashActive by remember { mutableStateOf(false) }
-                    var dndActive by remember { mutableStateOf(false) }
-                    var saverActive by remember { mutableStateOf(true) }
-
-                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
-                        modifier = Modifier.fillMaxWidth().height(110.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item { QuickToggle("📶", "Wi-Fi", wifiActive) { wifiActive = !wifiActive } }
-                        item { QuickToggle("🔵", "Bluetooth", btActive) { btActive = !btActive } }
-                        item { QuickToggle("✈️", "Airplane", airplaneActive) { airplaneActive = !airplaneActive } }
-                        item { QuickToggle("💡", "Flash", flashActive) { flashActive = !flashActive } }
-                        item { QuickToggle("🌙", "DND", dndActive) { dndActive = !dndActive } }
-                        item { QuickToggle("🔋", "Saver", saverActive) { saverActive = !saverActive } }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Volume Slider
-                    var volumeVal by remember { mutableStateOf(0.7f) }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("🔊", fontSize = 12.sp)
-                        Slider(
-                            value = volumeVal,
-                            onValueChange = { volumeVal = it },
-                            modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color(0xFF9D86FF),
-                                activeTrackColor = Color(0xFF6C4DF6)
-                            )
-                        )
-                    }
-
-                    // Brightness Slider
-                    var brightnessVal by remember { mutableStateOf(0.6f) }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("☀️", fontSize = 12.sp)
-                        Slider(
-                            value = brightnessVal,
-                            onValueChange = { brightnessVal = it },
-                            modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color(0xFF9D86FF),
-                                activeTrackColor = Color(0xFF6C4DF6)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-
-        // --- DESKTOP CONTEXT MENU (LONG PRESS) ---
-        if (contextMenuPosition != null) {
-            val offset = contextMenuPosition!!
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xF7161426)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .offset(
-                        x = with(LocalDensity.current) { offset.x.toDp() },
-                        y = with(LocalDensity.current) { offset.y.toDp() }
-                    )
-                    .width(180.dp)
-                    .border(1.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-                    .shadow(12.dp, RoundedCornerShape(12.dp))
-                    .pointerInput(Unit) { detectTapGestures {} }
-            ) {
-                Column(modifier = Modifier.padding(6.dp)) {
-                    ContextMenuItem("🔄 Refresh Desktop") {
-                        contextMenuPosition = null
-                        android.widget.Toast.makeText(context, "Desktop refreshed ✓", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                    ContextMenuItem("🖼️ Open Control Panel") {
-                        contextMenuPosition = null
-                        onSettingsOpen()
-                    }
-                    ContextMenuItem("📱 Toggle Wallpaper") {
-                        contextMenuPosition = null
-                        prefs.useSystemWallpaper = !prefs.useSystemWallpaper
-                        onSettingsOpen()
-                    }
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 4.dp))
-                    ContextMenuItem("❌ Close Menu") {
-                        contextMenuPosition = null
-                    }
                 }
             }
         }
