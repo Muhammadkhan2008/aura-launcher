@@ -1935,125 +1935,135 @@ fun AuraLockScreenOverlay(
                 .fillMaxSize()
                 .padding(vertical = 60.dp, horizontal = 24.dp)
         ) {
-            // Top section: Greeting + lock icon
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "🔒 Aura Secured",
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+            AuraLockScreenTopSection(timeString = timeString, dateString = dateString)
+            AuraLockScreenMiddleSection()
+            AuraLockScreenBottomSection()
+        }
+    }
+}
 
-                Spacer(Modifier.height(48.dp))
+@Composable
+fun AuraLockScreenTopSection(timeString: String, dateString: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "🔒 Aura Secured",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
 
-                // Giant premium clock
-                Text(
-                    text = timeString,
-                    color = Color.White,
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-2).sp
-                )
+        Spacer(Modifier.height(48.dp))
 
-                // Date
-                Text(
-                    text = dateString,
-                    color = Color(0xFF9D86FF),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+        // Giant premium clock
+        Text(
+            text = timeString,
+            color = Color.White,
+            fontSize = 64.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = (-2).sp
+        )
 
-            // Middle section: Live info widgets (Battery + Weather)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+        // Date
+        Text(
+            text = dateString,
+            color = Color(0xFF9D86FF),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun AuraLockScreenMiddleSection() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        // Battery status with a sleek visual bar
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Battery status with a sleek visual bar
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
-                    shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Text("⚡", fontSize = 20.sp)
+                Column(modifier = Modifier.weight(1f)) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("⚡", fontSize = 20.sp)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Aura Battery Monitor", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text("Active Status", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            // Glowing indicator bar
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(3.dp))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.85f) // Mock fill level
-                                        .fillMaxHeight()
-                                        .background(
-                                            Brush.horizontalGradient(listOf(Color(0xFF2193B0), Color(0xFF6D4DF6))),
-                                            RoundedCornerShape(3.dp)
-                                        )
+                        Text("Aura Battery Monitor", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Active Status", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    // Glowing indicator bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(3.dp))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f) // Mock fill level
+                                .fillMaxHeight()
+                                .background(
+                                    Brush.horizontalGradient(listOf(Color(0xFF2193B0), Color(0xFF6D4DF6))),
+                                    RoundedCornerShape(3.dp)
                                 )
-                            }
-                        }
+                        )
                     }
                 }
-
-                // Weather Widget summary
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
-                    shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text("☀️", fontSize = 24.sp)
-                        Column {
-                            Text("Aura Live Weather", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("28°C • Sunny Skies • Clear Visibility", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            // Bottom section: Swipe guide
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    "▲ Swipe up to unlock",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    "Aura OS v1.0",
-                    color = Color.White.copy(alpha = 0.3f),
-                    fontSize = 10.sp
-                )
             }
         }
+
+        // Weather Widget summary
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("☀️", fontSize = 24.sp)
+                Column {
+                    Text("Aura Live Weather", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("28°C • Sunny Skies • Clear Visibility", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AuraLockScreenBottomSection() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            "▲ Swipe up to unlock",
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            "Aura OS v1.0",
+            color = Color.White.copy(alpha = 0.3f),
+            fontSize = 10.sp
+        )
     }
 }
 
