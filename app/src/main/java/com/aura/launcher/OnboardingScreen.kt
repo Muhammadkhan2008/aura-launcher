@@ -220,96 +220,14 @@ fun GridStep(
 
         Spacer(Modifier.height(32.dp))
 
-        // Grid Options Selectors
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            for (col in 3..6) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(72.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            if (selectedColumns == col) Color(0xFF6C4DF6).copy(alpha = 0.3f)
-                            else Color.White.copy(alpha = 0.05f)
-                        )
-                        .border(
-                            width = 2.dp,
-                            color = if (selectedColumns == col) Color(0xFF9D86FF) else Color.Transparent,
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .clickable { selectedColumns = col },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = col.toString(),
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Cols",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-        }
+        GridOptionsSelector(
+            selectedColumns = selectedColumns,
+            onColumnsSelected = { selectedColumns = it }
+        )
 
         Spacer(Modifier.height(24.dp))
 
-        // Grid Columns Live Preview Mockup
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "Layout Preview ($selectedColumns Columns)",
-                    color = Color(0xFF9D86FF),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    for (i in 1..selectedColumns) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.White.copy(alpha = 0.15f))
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .width(28.dp)
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Color.White.copy(alpha = 0.25f))
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        GridLayoutPreview(selectedColumns = selectedColumns)
 
         Spacer(Modifier.height(40.dp))
 
@@ -340,6 +258,102 @@ fun GridStep(
                     .height(50.dp)
             ) {
                 Text("Next", color = Color.White, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun GridOptionsSelector(
+    selectedColumns: Int,
+    onColumnsSelected: (Int) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        for (col in 3..6) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(72.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        if (selectedColumns == col) Color(0xFF6C4DF6).copy(alpha = 0.3f)
+                        else Color.White.copy(alpha = 0.05f)
+                    )
+                    .border(
+                        width = 2.dp,
+                        color = if (selectedColumns == col) Color(0xFF9D86FF) else Color.Transparent,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .clickable { onColumnsSelected(col) },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = col.toString(),
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Cols",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GridLayoutPreview(selectedColumns: Int) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Layout Preview ($selectedColumns Columns)",
+                color = Color(0xFF9D86FF),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                for (i in 1..selectedColumns) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.15f))
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(28.dp)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.25f))
+                        )
+                    }
+                }
             }
         }
     }
