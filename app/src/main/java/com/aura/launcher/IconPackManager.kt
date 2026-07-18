@@ -4,6 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.xmlpull.v1.XmlPullParser
 
 /**
@@ -30,18 +34,28 @@ object IconPackManager {
     /** Phone pe installed saare icon packs dhoondho. */
     fun getInstalledIconPacks(context: Context): List<IconPack> {
         val pm = context.packageManager
-        val found = linkedMapOf<String, IconPack>()
-        for (action in ICON_PACK_ACTIONS) {
-            val intent = Intent(action)
-            val list = pm.queryIntentActivities(intent, PackageManager.GET_META_DATA)
-            for (info in list) {
-                val pkg = info.activityInfo.packageName
-                if (!found.containsKey(pkg)) {
-                    found[pkg] = IconPack(pkg, info.loadLabel(pm).toString())
+
+        // Coroutines use karke parallel me activities query aur label load karo
+        val packs = runBlocking(Dispatchers.IO) {
+            ICON_PACK_ACTIONS.map { action ->
+                async {
+                    val intent = Intent(action)
+                    pm.queryIntentActivities(intent, PackageManager.GET_META_DATA)
                 }
-            }
+            }.awaitAll()
+                .flatten()
+                // Deduplicate by package name first, to avoid redundant loadLabel calls
+                .distinctBy { it.activityInfo.packageName }
+                // Parallely load labels which can involve slow PM calls
+                .map { info ->
+                    async {
+                        val pkg = info.activityInfo.packageName
+                        IconPack(pkg, info.loadLabel(pm).toString())
+                    }
+                }.awaitAll()
         }
-        return found.values.toList()
+
+        return packs
     }
 
     /**
