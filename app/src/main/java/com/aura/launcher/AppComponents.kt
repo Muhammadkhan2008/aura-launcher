@@ -49,6 +49,66 @@ import androidx.compose.ui.graphics.painter.Painter
 
 val LocalActiveIconAlias = androidx.compose.runtime.staticCompositionLocalOf { "" }
 
+@Composable
+fun AppIconGraphic(app: AppInfo, iconSize: Int, activeIconAlias: String) {
+    if (app.packageName == "com.aura.launcher.freezer") {
+        Box(
+            modifier = Modifier
+                .size(iconSize.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF2193B0), Color(0xFF6DD5ED))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.AcUnit,
+                contentDescription = "Freezer",
+                tint = Color.White,
+                modifier = Modifier.size((iconSize * 0.6f).dp)
+            )
+        }
+        return
+    }
+
+    val themeColor = when {
+        activeIconAlias.contains("Neon", ignoreCase = true) -> Color(0xFF00FFCC)
+        activeIconAlias.contains("Whirl", ignoreCase = true) -> Color(0xFF9D86FF)
+        activeIconAlias.contains("Gold", ignoreCase = true) -> Color(0xFFFFD700)
+        activeIconAlias.contains("Cyber", ignoreCase = true) -> Color(0xFFFF007F)
+        else -> null
+    }
+
+    val iconTint = if (activeIconAlias.contains("Cyber", ignoreCase = true)) Color(0xFF00E5FF) else themeColor
+
+    if (themeColor != null) {
+        Box(
+            modifier = Modifier
+                .size(iconSize.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
+                .border(1.5.dp, themeColor, RoundedCornerShape(12.dp))
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = rememberDrawablePainter(app.icon),
+                contentDescription = app.label,
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(iconTint ?: themeColor),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    } else {
+        Image(
+            painter = rememberDrawablePainter(app.icon),
+            contentDescription = app.label,
+            modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppIcon(
@@ -89,109 +149,7 @@ fun AppIcon(
                 .padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
             Box {
-                if (app.packageName == "com.aura.launcher.freezer") {
-                    Box(
-                        modifier = Modifier
-                            .size(iconSize.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color(0xFF2193B0), Color(0xFF6DD5ED))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.AcUnit,
-                            contentDescription = "Freezer",
-                            tint = Color.White,
-                            modifier = Modifier.size((iconSize * 0.6f).dp)
-                        )
-                    }
-                } else {
-                    val alias = activeIconAlias
-                    when {
-                        alias.contains("Neon", ignoreCase = true) -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(iconSize.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
-                                    .border(1.5.dp, Color(0xFF00FFCC), RoundedCornerShape(12.dp))
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = rememberDrawablePainter(app.icon),
-                                    contentDescription = app.label,
-                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF00FFCC)),
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                        alias.contains("Whirl", ignoreCase = true) -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(iconSize.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
-                                    .border(1.5.dp, Color(0xFF9D86FF), RoundedCornerShape(12.dp))
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = rememberDrawablePainter(app.icon),
-                                    contentDescription = app.label,
-                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF9D86FF)),
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                        alias.contains("Gold", ignoreCase = true) -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(iconSize.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
-                                    .border(1.5.dp, Color(0xFFFFD700), RoundedCornerShape(12.dp))
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = rememberDrawablePainter(app.icon),
-                                    contentDescription = app.label,
-                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFFFFD700)),
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                        alias.contains("Cyber", ignoreCase = true) -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(iconSize.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF0F0C1E).copy(alpha = 0.8f))
-                                    .border(1.5.dp, Color(0xFFFF007F), RoundedCornerShape(12.dp))
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = rememberDrawablePainter(app.icon),
-                                    contentDescription = app.label,
-                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFF00E5FF)),
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                        else -> {
-                            Image(
-                                painter = rememberDrawablePainter(app.icon),
-                                contentDescription = app.label,
-                                modifier = Modifier.size(iconSize.dp).clip(RoundedCornerShape(12.dp))
-                            )
-                        }
-                    }
-                }
+                AppIconGraphic(app, iconSize, activeIconAlias)
                 if (badgeCount > 0) {
                     Box(
                         modifier = Modifier
